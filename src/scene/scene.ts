@@ -20,10 +20,11 @@ export function creerScene(): THREE.Scene {
 
   // Soleil du matin, un peu de biais, qui porte les ombres.
   const soleil = new THREE.DirectionalLight(0xfff1dc, 2.2);
-  soleil.position.set(-15, 30, 12);
+  soleil.position.set(-25, 50, 20);
   soleil.castShadow = true;
   soleil.shadow.mapSize.set(2048, 2048);
-  const zone = 40;
+  soleil.shadow.camera.far = 150;
+  const zone = 50;
   soleil.shadow.camera.left = -zone;
   soleil.shadow.camera.right = zone;
   soleil.shadow.camera.top = zone;
@@ -33,21 +34,11 @@ export function creerScene(): THREE.Scene {
 
   const sol = new THREE.Mesh(
     new THREE.PlaneGeometry(200, 200),
-    new THREE.MeshStandardMaterial({ color: config.couleurs.sol, roughness: 1 }),
+    new THREE.MeshStandardMaterial({ color: config.couleurs.herbe, roughness: 1 }),
   );
   sol.rotation.x = -Math.PI / 2;
   sol.receiveShadow = true;
   scene.add(sol);
-
-  // Repère provisoire au centre, pour juger la caméra et les ombres.
-  const repere = new THREE.Mesh(
-    new THREE.BoxGeometry(2, 2, 2),
-    new THREE.MeshStandardMaterial({ color: config.couleurs.repere, roughness: 0.6 }),
-  );
-  repere.position.y = 1;
-  repere.castShadow = true;
-  repere.name = 'repere';
-  scene.add(repere);
 
   return scene;
 }
