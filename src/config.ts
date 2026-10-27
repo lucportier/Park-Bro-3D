@@ -34,6 +34,24 @@ export const config = {
     dallePassagePieton: 2,
   },
 
+  voitures: {
+    modeles: ['sedan', 'suv', 'hatchback-sports', 'taxi', 'van', 'suv-luxury', 'sedan-sports', 'delivery'],
+    // Délai entre deux arrivées, tiré au hasard entre ces bornes (secondes).
+    intervalleMin: 4,
+    intervalleMax: 7.5,
+    // Vitesse de croisière de chaque conducteur, tirée entre ces bornes (m/s).
+    vitesseMin: 7,
+    vitesseMax: 9,
+    acceleration: 4,
+    freinage: 6,
+    // Espace entre deux voitures arrêtées dans la file (m).
+    ecart: 1.5,
+    // Distance gardée devant l'agent quand il est sur la voie (m).
+    margeObstacle: 1.5,
+    // Nombre de voitures en file au-delà duquel plus rien n'arrive (la défaite viendra plus tard).
+    fileMax: 8,
+  },
+
   // Facteurs d'échelle des modèles Kenney pour passer en mètres.
   echelles: {
     voiture: 1.75,

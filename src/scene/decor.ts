@@ -112,7 +112,7 @@ function portail(scene: THREE.Scene): void {
   toit.position.y = 2.75;
   scene.add(toit);
 
-  // Barrière levée (rouge et blanche) : on la verra s'abaisser plus tard.
+  // Barrière rouge et blanche, fermée en travers de l'entrée.
   const bras = new THREE.Group();
   const segments = 6;
   for (let i = 0; i < segments; i++) {
@@ -125,7 +125,8 @@ function portail(scene: THREE.Scene): void {
     bras.add(seg);
   }
   bras.position.set(x - 0.3, 1, zNord);
-  bras.rotation.x = 0.25;
+  bras.rotation.x = Math.PI / 2;
+  bras.name = 'barriere';
   scene.add(bras);
   const poteau = pave({ x1: x - 0.6, z1: zNord - 0.3, x2: x, z2: zNord + 0.3 }, 1.1, materiau(0x3a3f47));
   scene.add(poteau);
@@ -177,16 +178,14 @@ async function lampadaires(scene: THREE.Scene): Promise<void> {
   }
 }
 
-const modelesVoitures = ['sedan', 'suv', 'hatchback-sports', 'taxi', 'van', 'suv-luxury', 'sedan-sports'];
-
 // Quelques voitures déjà garées, réparties dans le parking.
 async function voituresGarees(scene: THREE.Scene): Promise<void> {
   const nombre = config.parking.voituresGareesAuDepart;
   const pas = Math.floor(places.length / nombre);
   for (let i = 0; i < nombre; i++) {
     const place = places[(i * pas + 3 * i) % places.length]!;
-    const voiture = await modele(`voitures/${modelesVoitures[i % modelesVoitures.length]}`, e.voiture);
-    voiture.position.set(place.x, 0.3 * e.voiture, place.z);
+    const voiture = await modele(`voitures/${config.voitures.modeles[i % config.voitures.modeles.length]}`, e.voiture);
+    voiture.position.set(place.x, 0, place.z);
     voiture.rotation.y = place.angle;
     scene.add(voiture);
   }

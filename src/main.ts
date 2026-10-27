@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import './ui/style.css';
 import { creerAgent, type Agent } from './game/agent';
+import { creerVoitures } from './game/voitures';
 import { ajusterCamera, creerCamera, suivre } from './scene/camera';
 import { creerDecor } from './scene/decor';
 import { creerRendu, creerScene } from './scene/scene';
@@ -11,6 +12,7 @@ const scene = creerScene();
 const camera = creerCamera();
 creerDecor(scene).catch((erreur) => console.error('Décor non chargé', erreur));
 
+const voitures = creerVoitures(scene);
 let agent: Agent | null = null;
 creerAgent(scene)
   .then((a) => {
@@ -37,6 +39,7 @@ function boucle(temps: number): void {
   if (agent) {
     agent.mettreAJour(lireDirection(), dt);
     suivre(camera, agent.objet.position, dt);
+    voitures.mettreAJour(dt, agent.objet.position);
   }
   rendu.render(scene, camera);
   requestAnimationFrame(boucle);
