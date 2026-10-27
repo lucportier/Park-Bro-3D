@@ -21,9 +21,28 @@ export interface Agent {
   mettreAJour(direction: Direction, dt: number): void;
 }
 
+// Gilet jaune fluo à deux bandes réfléchissantes, accroché à l'os du torse pour
+// suivre les animations. Dimensions dans l'unité du modèle Kenney (avant mise à l'échelle).
+function creerGilet(): THREE.Group {
+  const gilet = new THREE.Group();
+  const jaune = new THREE.MeshStandardMaterial({ color: config.couleurs.gilet, roughness: 0.6, emissive: config.couleurs.gilet, emissiveIntensity: 0.15 });
+  const bandes = new THREE.MeshStandardMaterial({ color: config.couleurs.giletBandes, roughness: 0.3, metalness: 0.4 });
+  const corps = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.19, 0.3), jaune);
+  corps.castShadow = true;
+  gilet.add(corps);
+  for (const y of [-0.045, 0.035]) {
+    const bande = new THREE.Mesh(new THREE.BoxGeometry(0.41, 0.025, 0.31), bandes);
+    bande.position.y = y;
+    gilet.add(bande);
+  }
+  gilet.position.set(0, 0.06, 0.005);
+  return gilet;
+}
+
 export async function creerAgent(scene: THREE.Scene): Promise<Agent> {
   const { objet, animations } = await modeleAnime(`personnages/${a.modele}`, config.echelles.personnage);
   objet.position.set(plan.xPortail + a.departX, 0, plan.zEntree + a.departZ);
+  objet.getObjectByName('torso')?.add(creerGilet());
   scene.add(objet);
 
   // Anneau jaune au sol : on repère l'agent d'un coup d'œil parmi les piétons.

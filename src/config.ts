@@ -12,6 +12,8 @@ export const config = {
     barriere: 0xe84a3c,
     enseigne: '#2e6fd8',
     agent: 0xffd23f,
+    gilet: 0xe9f018,
+    giletBandes: 0xdfe4ea,
   },
 
   parking: {
@@ -42,7 +44,7 @@ export const config = {
   },
 
   agent: {
-    modele: 'character-male-c',
+    modele: 'character-male-b',
     // Départ par rapport au portail, côté parking.
     departX: 4,
     departZ: -5,
