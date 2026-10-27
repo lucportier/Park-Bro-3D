@@ -11,6 +11,7 @@ export const config = {
     guerite: 0xf2b134,
     barriere: 0xe84a3c,
     enseigne: '#2e6fd8',
+    agent: 0xffd23f,
   },
 
   parking: {
@@ -40,11 +41,32 @@ export const config = {
     personnage: 2.4,
   },
 
+  agent: {
+    modele: 'character-male-c',
+    // Départ par rapport au portail, côté parking.
+    departX: 4,
+    departZ: -5,
+    // Mètres par seconde à fond (clavier ou joystick poussé au bout).
+    vitesse: 6,
+    // Au-delà de cette part de la vitesse, l'agent court au lieu de marcher.
+    seuilCourse: 0.6,
+    vitesseRotation: 12,
+    fonduAnimation: 0.15,
+  },
+
+  joystick: {
+    // Rayon du joystick en pixels, et glissement minimal avant qu'il s'active.
+    rayon: 60,
+    seuil: 12,
+  },
+
   camera: {
     // Inclinaison par rapport au sol, en degrés (90 = vue de dessus).
     inclinaison: 55,
-    // Distance entre la caméra et le point regardé.
-    distance: 70,
+    // Distance entre la caméra et l'agent qu'elle suit.
+    distance: 34,
+    // Rapidité avec laquelle la caméra rattrape l'agent (plus grand = plus collé).
+    suivi: 5,
     // Champ de vision vertical, en degrés.
     champ: 40,
   },

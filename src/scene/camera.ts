@@ -7,8 +7,17 @@ export function creerCamera(): THREE.PerspectiveCamera {
   return camera;
 }
 
+const cibleLissee = new THREE.Vector3();
+
+// Fait glisser doucement la caméra vers sa cible (l'agent).
+export function suivre(camera: THREE.PerspectiveCamera, cible: THREE.Vector3, dt: number, immediat = false): void {
+  if (immediat) cibleLissee.copy(cible);
+  else cibleLissee.lerp(cible, 1 - Math.exp(-config.camera.suivi * dt));
+  viser(camera, cibleLissee);
+}
+
 // Place la caméra au-dessus et en arrière de la cible, inclinée vers elle.
-export function viser(camera: THREE.PerspectiveCamera, cible: THREE.Vector3): void {
+function viser(camera: THREE.PerspectiveCamera, cible: THREE.Vector3): void {
   const angle = THREE.MathUtils.degToRad(config.camera.inclinaison);
   const d = config.camera.distance;
   camera.position.set(cible.x, cible.y + Math.sin(angle) * d, cible.z + Math.cos(angle) * d);
