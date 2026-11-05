@@ -80,5 +80,8 @@ export const plan = {
   zSud: zFin,
   // Centre de l'allée par laquelle arrivent les voitures.
   zEntree: zAllee2 + p.largeurAllee / 2,
+  // Entrée du parking (pas de barrière : elle reste levée dès 8 h).
   xPortail: -xBord - largeurVoieLaterale,
+  // Ligne peinte sur la route où la tête de file s'arrête pour attendre l'agent.
+  xLigneArret: -xBord - largeurVoieLaterale - 1,
 };

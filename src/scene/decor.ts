@@ -100,36 +100,27 @@ async function routeEntree(scene: THREE.Scene): Promise<void> {
   }
 }
 
-function portail(scene: THREE.Scene): void {
+function entree(scene: THREE.Scene): void {
   const largeur = config.routeEntree.largeur;
   const x = plan.xPortail;
   const zNord = plan.zEntree - largeur / 2;
 
-  // Guérite au bord nord de l'entrée.
+  // Guérite au bord nord de l'entrée. Pas de barrière : elle est levée dès 8 h.
   const guerite = pave({ x1: x - 3, z1: zNord - 3.2, x2: x - 0.5, z2: zNord - 0.7 }, 2.6, materiau(c.guerite));
   scene.add(guerite);
   const toit = pave({ x1: x - 3.3, z1: zNord - 3.5, x2: x - 0.2, z2: zNord - 0.4 }, 0.3, materiau(0xffffff));
   toit.position.y = 2.75;
   scene.add(toit);
 
-  // Barrière rouge et blanche, fermée en travers de l'entrée.
-  const bras = new THREE.Group();
-  const segments = 6;
-  for (let i = 0; i < segments; i++) {
-    const seg = new THREE.Mesh(
-      new THREE.BoxGeometry(0.2, largeur / segments, 0.2),
-      materiau(i % 2 === 0 ? c.barriere : 0xffffff),
-    );
-    seg.position.y = (i + 0.5) * (largeur / segments);
-    seg.castShadow = true;
-    bras.add(seg);
-  }
-  bras.position.set(x - 0.3, 1, zNord);
-  bras.rotation.x = Math.PI / 2;
-  bras.name = 'barriere';
-  scene.add(bras);
-  const poteau = pave({ x1: x - 0.6, z1: zNord - 0.3, x2: x, z2: zNord + 0.3 }, 1.1, materiau(0x3a3f47));
-  scene.add(poteau);
+  // Ligne d'arrêt sur la voie d'arrivée (moitié sud de la route), au-dessus des dalles Kenney.
+  const hauteurRoute = 0.02 * e.dalleRoute + 0.01;
+  scene.add(
+    dalle(
+      { x1: plan.xLigneArret + 0.2, z1: plan.zEntree + 0.2, x2: plan.xLigneArret + 0.7, z2: plan.zEntree + largeur / 2 - 0.4 },
+      matLignes,
+      hauteurRoute,
+    ),
+  );
 }
 
 async function parcDesExpos(scene: THREE.Scene): Promise<void> {
@@ -193,6 +184,6 @@ async function voituresGarees(scene: THREE.Scene): Promise<void> {
 
 export async function creerDecor(scene: THREE.Scene): Promise<void> {
   sol(scene);
-  portail(scene);
+  entree(scene);
   await Promise.all([routeEntree(scene), parcDesExpos(scene), lampadaires(scene), voituresGarees(scene)]);
 }

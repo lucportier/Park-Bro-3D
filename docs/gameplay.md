@@ -15,9 +15,9 @@ Ce document remplace l'ensemble des specs de la version 2D pour la nouvelle vers
 
 Le joueur incarne un agent de parking qui se déplace à pied.
 
-1. Des voitures arrivent par la route d'entrée et font la queue au portail.
+1. Des voitures arrivent par la route d'entrée et font la queue à l'entrée du parking. Il n'y a pas de barrière (elle est levée dès 8 h) : la voiture de tête s'arrête à la ligne d'arrêt et attend l'agent.
 2. Le joueur amène son agent près de la voiture en tête de file, puis choisit une place (clic ou tap sur une place libre).
-3. Il peut aussi **faire signe** (bouton « Signe », barre d'espace sur ordinateur) : si l'agent est assez proche, la tête de file roule jusqu'à lui, puis il choisit une place. Cela évite de remonter jusqu'au portail à chaque voiture.
+3. Il peut aussi **faire signe** (bouton « Signe », barre d'espace sur ordinateur) : si l'agent est assez proche, la tête de file roule jusqu'à lui, puis il choisit une place. Cela évite de remonter jusqu'à l'entrée à chaque voiture.
 4. La voiture va se garer. Ses occupants descendent et marchent jusqu'au parc des expos.
 5. Pendant ce temps, la file s'allonge, la patience baisse, des piétons traversent, des incidents surgissent.
 6. La partie s'arrête à 11:00 (ou plus tôt en cas de défaite) et affiche un score et un petit bilan.

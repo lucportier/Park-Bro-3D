@@ -6,10 +6,10 @@ import { places, plan } from './parking';
 
 const v = config.voitures;
 
-// On roule à droite : la voie qui mène au portail est côté sud de la route.
+// On roule à droite : la voie qui mène au parking est côté sud de la route.
 const zVoie = plan.zEntree + config.routeEntree.largeur / 4;
-// L'avant de la tête de file s'arrête juste devant la barrière.
-const ligneArret = plan.xPortail - 1;
+// L'avant de la tête de file s'arrête sur la ligne d'arrêt, à l'entrée du parking.
+const ligneArret = plan.xLigneArret;
 const xApparition = plan.xPortail - config.routeEntree.longueur;
 // Il n'arrive pas plus de voitures que de places libres.
 const placesLibres = places.length - config.parking.voituresGareesAuDepart;

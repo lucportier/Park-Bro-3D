@@ -9,7 +9,6 @@ export const config = {
     lignes: 0xf4f1e8,
     trottoir: 0xd8d2c4,
     guerite: 0xf2b134,
-    barriere: 0xe84a3c,
     enseigne: '#2e6fd8',
     agent: 0xffd23f,
     gilet: 0xe9f018,
