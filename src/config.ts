@@ -13,6 +13,7 @@ export const config = {
     agent: 0xffd23f,
     gilet: 0xe9f018,
     giletBandes: 0xdfe4ea,
+    regard: 0xffffff,
   },
 
   parking: {
@@ -49,6 +50,28 @@ export const config = {
     margeObstacle: 1.5,
     // Nombre de voitures en file au-delà duquel plus rien n'arrive (la défaite viendra plus tard).
     fileMax: 8,
+  },
+
+  // La voiture de tête qui voit l'agent devant elle quitte la file et vient vers lui.
+  approche: {
+    // Regard du conducteur : demi-angle du cône (degrés) et portée (m).
+    angleRegard: 15,
+    porteeRegard: 25,
+    // Vitesse quand elle voit simplement l'agent, et quand il lui a fait signe (m/s).
+    vitesseLente: 2.5,
+    vitesseSigne: 7,
+    // Distance gardée entre l'avant de la voiture et l'agent (m).
+    distanceAgent: 2,
+    // Plus petit rayon de virage, et distance du point visé sur la chaussée (m).
+    rayonBraquage: 4.5,
+    visee: 3.5,
+  },
+
+  signe: {
+    // Distance à laquelle la voiture de tête remarque le geste (m).
+    rayon: 30,
+    // Durée du geste (s).
+    duree: 0.7,
   },
 
   // Facteurs d'échelle des modèles Kenney pour passer en mètres.

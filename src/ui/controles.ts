@@ -17,8 +17,12 @@ const GAUCHE = ['KeyA', 'ArrowLeft'];
 const DROITE = ['KeyD', 'ArrowRight'];
 const TOUCHES_JEU = [...HAUT, ...BAS, ...GAUCHE, ...DROITE];
 
+// Geste « faire signe » : barre d'espace ou bouton à l'écran, consommé une fois.
+let signe = false;
+
 window.addEventListener('keydown', (e) => {
-  if (TOUCHES_JEU.includes(e.code)) e.preventDefault();
+  if (TOUCHES_JEU.includes(e.code) || e.code === 'Space') e.preventDefault();
+  if (e.code === 'Space' && !e.repeat) signe = true;
   touchesEnfoncees.add(e.code);
 });
 window.addEventListener('keyup', (e) => touchesEnfoncees.delete(e.code));
@@ -84,4 +88,22 @@ export function lireDirection(): Direction {
   const z = (appuye(BAS) ? 1 : 0) - (appuye(HAUT) ? 1 : 0);
   const longueur = Math.hypot(x, z);
   return longueur > 0 ? { x: x / longueur, z: z / longueur } : { x: 0, z: 0 };
+}
+
+const boutonSigne = document.createElement('button');
+boutonSigne.className = 'bouton-signe';
+boutonSigne.type = 'button';
+boutonSigne.innerHTML = '<span>✋</span>Signe';
+// Le doigt posé sur le bouton ne doit pas lancer le joystick.
+boutonSigne.addEventListener('pointerdown', (e) => {
+  e.stopPropagation();
+  e.preventDefault();
+  signe = true;
+});
+document.body.appendChild(boutonSigne);
+
+export function signeDemande(): boolean {
+  const demande = signe;
+  signe = false;
+  return demande;
 }

@@ -16,11 +16,13 @@ Ce document remplace l'ensemble des specs de la version 2D pour la nouvelle vers
 Le joueur incarne un agent de parking qui se déplace à pied.
 
 1. Des voitures arrivent par la route d'entrée et font la queue à l'entrée du parking. Il n'y a pas de barrière (elle est levée dès 8 h) : la voiture de tête s'arrête à la ligne d'arrêt et attend l'agent.
-2. Le joueur amène son agent près de la voiture en tête de file, puis choisit une place (clic ou tap sur une place libre).
-3. Il peut aussi **faire signe** (bouton « Signe », barre d'espace sur ordinateur) : si l'agent est assez proche, la tête de file roule jusqu'à lui, puis il choisit une place. Cela évite de remonter jusqu'à l'entrée à chaque voiture.
-4. La voiture va se garer. Ses occupants descendent et marchent jusqu'au parc des expos.
-5. Pendant ce temps, la file s'allonge, la patience baisse, des piétons traversent, des incidents surgissent.
-6. La partie s'arrête à 11:00 (ou plus tôt en cas de défaite) et affiche un score et un petit bilan.
+2. Si l'agent est **dans le regard** de la voiture de tête (un cône étroit devant elle, dessiné au sol), elle quitte la file et s'avance doucement vers lui, en restant sur la chaussée (route, allées, voies latérales). S'il sort de son regard, elle s'arrête.
+3. S'il **fait signe** (bouton « Signe », barre d'espace sur ordinateur) et qu'elle est assez proche, elle vient vite jusqu'à lui, même s'il sort de son regard. Cela évite de remonter jusqu'à l'entrée à chaque voiture.
+4. Une fois la voiture près de l'agent, le joueur choisit une place (clic ou tap sur une place libre).
+5. Sans geste, la patience baisse : jauge vide, la voiture cherche une place seule (voir §3.2).
+6. La voiture va se garer. Ses occupants descendent et marchent jusqu'au parc des expos.
+7. Pendant ce temps, la file s'allonge, la patience baisse, des piétons traversent, des incidents surgissent.
+8. La partie s'arrête à 11:00 (ou plus tôt en cas de défaite) et affiche un score et un petit bilan.
 
 ## 3. Règles
 
@@ -32,6 +34,8 @@ Le joueur incarne un agent de parking qui se déplace à pied.
 
 ### 3.2 Voitures
 
+- Une voiture ne roule que sur la chaussée et ne fait pas marche arrière ; elle s'arrête toujours avant l'agent.
+- Une seule voiture à la fois quitte la file pour venir vers l'agent.
 - Une voiture qui attend a une jauge de patience visible. Seule la tête de file perd sa patience à plein régime ; les suivantes la perdent deux fois moins vite.
 - Jauge vide : la voiture se gare seule sur une place au hasard, avec une pénalité.
 - Une voiture garée ne repart pas pendant la partie.
@@ -98,7 +102,9 @@ Valeurs initiales, à régler en jouant dans `src/config.ts`.
 | Intervalle entre deux arrivées        | 4 à 7,5 s           |
 | File maximale avant défaite           | environ 8 voitures  |
 | Patience                              | 14 s                |
-| Rayon du geste « faire signe »        | à régler            |
+| Regard de la voiture de tête          | cône de ±15°, 25 m  |
+| Vitesse d'approche (regard / signe)   | 2,5 / 7 unités/s    |
+| Rayon du geste « faire signe »        | 30 m                |
 | Vitesse des voitures                  | 7 à 9 unités/s      |
 | Vitesse des piétons                   | 1,6 à 2,1 unités/s  |
 | Durée réelle de 08:00 à 11:00         | environ 4 min       |

@@ -1,4 +1,5 @@
 import { config } from '../config';
+import type { Reseau } from './chaussee';
 
 // Plan du parking, vu de dessus : x vers la droite, z vers le bas de l'écran.
 // Le parc des expos est au nord (z négatif), la route d'entrée arrive par l'ouest.
@@ -84,4 +85,28 @@ export const plan = {
   xPortail: -xBord - largeurVoieLaterale,
   // Ligne peinte sur la route où la tête de file s'arrête pour attendre l'agent.
   xLigneArret: -xBord - largeurVoieLaterale - 1,
+};
+
+// Chaussée sur laquelle une voiture peut venir vers l'agent : lignes médianes de la
+// voie d'arrivée (depuis la ligne d'arrêt), des deux allées et des deux voies latérales.
+const xOuest = plan.asphalte.x1 + largeurVoieLaterale / 2;
+const xEst = plan.asphalte.x2 - largeurVoieLaterale / 2;
+const zNordAllee = zAllee1 + p.largeurAllee / 2;
+const zSudAllee = plan.zEntree;
+
+export const chaussee: Reseau = {
+  noeuds: [
+    { x: plan.xLigneArret, z: plan.zEntree + config.routeEntree.largeur / 4 },
+    { x: xOuest, z: zSudAllee },
+    { x: xEst, z: zSudAllee },
+    { x: xEst, z: zNordAllee },
+    { x: xOuest, z: zNordAllee },
+  ],
+  aretes: [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 4],
+    [4, 1],
+  ],
 };

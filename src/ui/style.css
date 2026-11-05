@@ -28,3 +28,34 @@
   border: 3px solid #ffffff;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
 }
+
+.bouton-signe {
+  position: fixed;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  background: #ffd23f;
+  color: #3a3220;
+  font: 700 15px/1.1 system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s;
+}
+
+.bouton-signe span {
+  font-size: 26px;
+}
+
+.bouton-signe:active {
+  transform: scale(0.92);
+}
