@@ -3,6 +3,7 @@ import { config } from '../config';
 import { modele } from '../scene/modeles';
 import { chemin, longueur, pointA, type Point } from './chaussee';
 import { avancerFile, type VoitureEnFile } from './file';
+import { perteDePatience } from './score';
 import { chaussee, entreeDePlace, places, placesOccupeesAuDepart, plan, type Place } from './parking';
 
 const v = config.voitures;
@@ -20,6 +21,9 @@ const placesLibres = places.length - config.parking.voituresGareesAuDepart;
 const RAYON_ROUE = 0.3 * config.echelles.voiture;
 
 interface Voiture extends VoitureEnFile {
+  // Patience restante (s) et jauge au-dessus de la voiture.
+  patience: number;
+  jauge: Jauge;
   objet: THREE.Object3D;
   roues: THREE.Object3D[];
 }
@@ -200,7 +204,48 @@ function creerSurbrillances(scene: THREE.Scene): { meshes: THREE.Mesh[]; materia
   return { meshes, materiau };
 }
 
-export function creerVoitures(scene: THREE.Scene) {
+// Ce que le jeu doit savoir pour le score : une voiture placée par le joueur (avec la part
+// de patience qui lui restait), ou garée seule faute d'attention.
+export type Evenement =
+  | { type: 'placee'; patienceRestante: number; position: THREE.Vector3 }
+  | { type: 'seule'; position: THREE.Vector3 };
+
+// Petite jauge de patience flottant au-dessus d'une voiture, toujours tournée vers la caméra.
+interface Jauge {
+  objet: THREE.Group;
+  remplissage: THREE.Mesh;
+}
+
+const geoJauge = new THREE.PlaneGeometry(1, 1);
+const matFondJauge = new THREE.MeshBasicMaterial({ color: 0x22262c, transparent: true, opacity: 0.75, depthTest: false });
+
+function creerJauge(scene: THREE.Scene): Jauge {
+  const objet = new THREE.Group();
+  const j = config.patience;
+  const fond = new THREE.Mesh(geoJauge, matFondJauge);
+  fond.scale.set(j.largeurJauge + 0.16, j.hauteurJauge + 0.16, 1);
+  fond.renderOrder = 10;
+  const remplissage = new THREE.Mesh(geoJauge, new THREE.MeshBasicMaterial({ color: 0x5cc85c, transparent: true, depthTest: false }));
+  remplissage.renderOrder = 11;
+  objet.add(fond, remplissage);
+  objet.visible = false;
+  scene.add(objet);
+  return { objet, remplissage };
+}
+
+function afficherJauge(j: Jauge, voiture: Voiture, camera: THREE.Camera): void {
+  const c = config.patience;
+  const part = Math.max(0, voiture.patience / c.duree);
+  j.objet.visible = true;
+  j.objet.position.set(voiture.objet.position.x, c.hauteurAuDessus, voiture.objet.position.z);
+  j.objet.quaternion.copy(camera.quaternion);
+  j.remplissage.scale.set(Math.max(0.001, c.largeurJauge * part), c.hauteurJauge, 1);
+  j.remplissage.position.x = (c.largeurJauge * (part - 1)) / 2;
+  const couleur = part > config.score.seuilBonus ? 0x5cc85c : part > 0.25 ? 0xf2c230 : 0xe5533d;
+  (j.remplissage.material as THREE.MeshBasicMaterial).color.setHex(couleur);
+}
+
+export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvenement: (e: Evenement) => void) {
   const file: Voiture[] = [];
   let arrivees = 0;
   let enChargement = false;
@@ -225,7 +270,16 @@ export function creerVoitures(scene: THREE.Scene) {
     const longueurVoiture = new THREE.Box3().setFromObject(objet).getSize(new THREE.Vector3()).x;
     const vitesseMax = aleatoire(v.vitesseMin, v.vitesseMax);
     const roues = objet.children.filter((o) => o.name.startsWith('wheel'));
-    const voiture: Voiture = { objet, roues, x: xApparition, vitesse: vitesseMax, vitesseMax, longueur: longueurVoiture };
+    const voiture: Voiture = {
+      objet,
+      roues,
+      x: xApparition,
+      vitesse: vitesseMax,
+      vitesseMax,
+      longueur: longueurVoiture,
+      patience: config.patience.duree,
+      jauge: creerJauge(scene),
+    };
     objet.position.set(voiture.x, 0, zVoie);
     scene.add(objet);
     file.push(voiture);
@@ -258,6 +312,34 @@ export function creerVoitures(scene: THREE.Scene) {
     const tete = !approche ? teteALaLigne() : null;
     if (tete && tete.objet.position.distanceTo(agentPos) <= ga.distanceChoix) return { roulante: null, tete };
     return null;
+  }
+
+  function envoyerSurPlace(r: Roulante, place: Place): void {
+    if (r === approche) approche = null;
+    r.place = place;
+    libres[place.id] = false;
+    garages.push(r);
+    r.voiture.jauge.objet.visible = false;
+  }
+
+  // Patience des voitures qui attendent ; la tête à bout de patience part seule se garer.
+  function gererPatience(dt: number): void {
+    const c = config.patience;
+    const tete = approche?.voiture ?? teteALaLigne();
+    for (const voiture of file) {
+      // Une voiture qui roule librement vers la file ne s'impatiente pas encore.
+      if (voiture !== tete && voiture.vitesse > 1) continue;
+      voiture.patience = Math.max(0, voiture.patience - perteDePatience(voiture === tete, dt, c.ratioSuivantes));
+    }
+    if (approche) approche.voiture.patience = Math.max(0, approche.voiture.patience - dt);
+
+    if (!tete || tete.patience > 0) return;
+    const choix = places.filter((pl) => libres[pl.id]);
+    const place = choix[Math.floor(Math.random() * choix.length)];
+    if (!place) return;
+    const r = approche ?? sortirDeLaFile(tete, false);
+    envoyerSurPlace(r, place);
+    surEvenement({ type: 'seule', position: tete.objet.position });
   }
 
   // Obstacles pour une voiture qui roule : l'agent, et les voitures parties avant elle.
@@ -328,10 +410,12 @@ export function creerVoitures(scene: THREE.Scene) {
       const prete = voiturePrete();
       if (!prete || !libres[place.id]) return false;
       const r = prete.roulante ?? sortirDeLaFile(prete.tete!, false);
-      if (r === approche) approche = null;
-      r.place = place;
-      libres[place.id] = false;
-      garages.push(r);
+      envoyerSurPlace(r, place);
+      surEvenement({
+        type: 'placee',
+        patienceRestante: r.voiture.patience / config.patience.duree,
+        position: r.voiture.objet.position,
+      });
       return true;
     },
 
@@ -383,6 +467,10 @@ export function creerVoitures(scene: THREE.Scene) {
       for (let i = garages.length - 1; i >= 0; i--) {
         if (allerSeGarer(garages[i]!, dt)) garages.splice(i, 1);
       }
+
+      gererPatience(dt);
+      for (const voiture of file) afficherJauge(voiture.jauge, voiture, camera);
+      if (approche) afficherJauge(approche.voiture.jauge, approche.voiture, camera);
 
       // Places libres en surbrillance pendant qu'une voiture attend sa place.
       const attend = voiturePrete() !== null;

@@ -1,7 +1,10 @@
 import * as THREE from 'three';
 import './ui/style.css';
 import { creerAgent, type Agent } from './game/agent';
-import { creerVoitures } from './game/voitures';
+import { creerVoitures, type Evenement } from './game/voitures';
+import { ajouter, pointsPlacement } from './game/score';
+import { config } from './config';
+import { afficherScore, pointsVolants } from './ui/hud';
 import { ajusterCamera, creerCamera, suivre } from './scene/camera';
 import { creerDecor } from './scene/decor';
 import { creerRendu, creerScene } from './scene/scene';
@@ -13,7 +16,22 @@ const scene = creerScene();
 const camera = creerCamera();
 creerDecor(scene).catch((erreur) => console.error('Décor non chargé', erreur));
 
-const voitures = creerVoitures(scene);
+// Score : +10 (et +15 si la voiture est placée vite) par le joueur, −5 si elle se gare seule.
+let score = 0;
+function surEvenement(e: Evenement): void {
+  const points = e.type === 'placee' ? pointsPlacement(e.patienceRestante, config.score) : config.score.gareeSeule;
+  score = ajouter(score, points);
+  afficherScore(score);
+  const ecran = e.position.clone().setY(3).project(camera);
+  pointsVolants(
+    points > 0 ? `+${points}` : `${points}`,
+    ((ecran.x + 1) / 2) * window.innerWidth,
+    ((1 - ecran.y) / 2) * window.innerHeight,
+    points > 0,
+  );
+}
+
+const voitures = creerVoitures(scene, camera, surEvenement);
 let agent: Agent | null = null;
 creerAgent(scene)
   .then((a) => {

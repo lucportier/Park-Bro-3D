@@ -84,6 +84,25 @@ export const config = {
     couloirVoiture: 2.1,
   },
 
+  patience: {
+    // Patience d'une voiture qui attend (s). La tête de file la perd à plein régime,
+    // les suivantes (à l'arrêt dans la file) moins vite.
+    duree: 14,
+    ratioSuivantes: 0.5,
+    // Jauge au-dessus des voitures (m).
+    largeurJauge: 2.2,
+    hauteurJauge: 0.32,
+    hauteurAuDessus: 3.8,
+  },
+
+  score: {
+    placee: 10,
+    bonusRapide: 15,
+    // Bonus si la voiture est placée avec plus de cette part de patience.
+    seuilBonus: 0.5,
+    gareeSeule: -5,
+  },
+
   signe: {
     // Distance à laquelle la voiture de tête remarque le geste (m).
     rayon: 30,

@@ -36,8 +36,8 @@ Le joueur incarne un agent de parking qui se déplace à pied.
 
 - Une voiture ne roule que sur la chaussée, à droite, et ne fait pas marche arrière (elle fait le tour s'il le faut) ; elle s'arrête toujours avant l'agent.
 - Une seule voiture à la fois quitte la file pour venir vers l'agent.
-- Une voiture qui attend a une jauge de patience visible. Seule la tête de file perd sa patience à plein régime ; les suivantes la perdent deux fois moins vite.
-- Jauge vide : la voiture se gare seule sur une place au hasard, avec une pénalité.
+- Une voiture qui attend a une jauge de patience visible (verte tant que le bonus est possible, puis jaune, puis rouge). Seule la tête de file (ou la voiture qui vient vers l'agent) perd sa patience à plein régime ; les suivantes, arrêtées dans la file, la perdent deux fois moins vite. Une voiture qui roule encore vers la file ne s'impatiente pas.
+- Jauge vide : la tête de file se gare seule sur une place libre au hasard, avec une pénalité. Une voiture plus loin dans la file, à bout de patience, part seule dès qu'elle arrive en tête.
 - Une voiture garée ne repart pas pendant la partie.
 - Il n'arrive pas plus de voitures que de places libres.
 
