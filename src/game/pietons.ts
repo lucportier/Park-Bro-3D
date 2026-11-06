@@ -3,7 +3,7 @@ import { config } from '../config';
 import { modeleAnime } from '../scene/modeles';
 import type { Point } from './chaussee';
 import { plan, type Place } from './parking';
-import { peutAvancer, type PietonMobile, type VoitureVue } from './priorite';
+import { bloqueur, contournement, type PietonMobile, type VoitureVue } from './priorite';
 
 const pc = config.pietons;
 const p = config.parking;
@@ -22,6 +22,8 @@ interface Pieton extends PietonMobile {
   vitesse: number;
   // Délai avant de descendre de la voiture (s), puis disparition à la porte.
   attente: number;
+  // Temps passé à attendre une voiture (s).
+  bloque: number;
   disparition: number;
   apparition: number;
   enMarche: boolean;
@@ -74,6 +76,7 @@ export function creerPietons(scene: THREE.Scene) {
       etape: 1,
       vitesse,
       attente: rang * pc.delaiDescente + pc.delaiDescente,
+      bloque: 0,
       disparition: -1,
       apparition: 0,
       enMarche: false,
@@ -139,11 +142,25 @@ export function creerPietons(scene: THREE.Scene) {
         const dx = but.x - ici.x;
         const dz = but.z - ici.z;
         const d = Math.hypot(dx, dz);
-        if (!peutAvancer(ici, but, voitures, pc)) {
+        if (d < 1e-6) {
+          pi.etape++;
+          if (pi.etape >= pi.trajet.length) pi.disparition = 0;
+          continue;
+        }
+        // Patient au bout d'un moment : il passe devant une voiture arrêtée (souvent pour
+        // d'autres piétons), et la contourne si elle lui barre le chemin.
+        const gene = bloqueur(ici, but, voitures, pc, pi.bloque > pc.patience);
+        if (gene) {
+          pi.bloque += dt;
+          if (!gene.roule && pi.bloque > pc.patienceContournement) {
+            pi.trajet.splice(pi.etape, 0, contournement(ici, but, gene, pc.margeCarrosserie));
+            pi.bloque = 0;
+          }
           pi.vx = pi.vz = 0;
           changer(pi, false);
           continue;
         }
+        pi.bloque = 0;
         changer(pi, true);
         const pas = Math.min(d, pi.vitesse * dt);
         pi.vx = (dx / d) * pi.vitesse;

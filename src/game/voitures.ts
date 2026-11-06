@@ -6,6 +6,7 @@ import { avancerFile, type VoitureEnFile } from './file';
 import {
   distanceLibre,
   obstaclesPietons,
+  pietonPresDeLaVoie,
   plafondPietons,
   type Obstacle,
   type PietonMobile,
@@ -52,8 +53,10 @@ interface Roulante {
   courbe: { points: Point[]; s: number } | null;
   // Temps restant avant de repartir après s'être arrêtée pour un piéton (s).
   reprise: number;
-  // Arrêtée par le signe de l'agent : temps écoulé sans piéton autour (null si elle roule).
+  // Arrêtée par le signe de l'agent : temps écoulé sans piéton devant elle, et depuis
+  // l'arrêt (null si elle roule).
   retenue: number | null;
+  dureeRetenue: number;
   prudenceDonnee: boolean;
   main: THREE.Sprite | null;
 }
@@ -348,6 +351,7 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
       courbe: null,
       reprise: 0,
       retenue: null,
+      dureeRetenue: 0,
       prudenceDonnee: false,
       main: null,
     };
@@ -427,6 +431,7 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
       if (r.voiture.objet.position.distanceTo(agentPos) > config.signe.rayonArret) continue;
       if (r.retenue === null && pietonsAutour(r) && (r.voiture.vitesse > 0.5 || r.reprise > 0)) {
         r.retenue = 0;
+        r.dureeRetenue = 0;
         r.main = new THREE.Sprite(new THREE.SpriteMaterial({ map: texteMain, depthTest: false }));
         r.main.scale.setScalar(1.4);
         r.main.renderOrder = 12;
@@ -439,13 +444,25 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
     return retenues;
   }
 
-  // Une voiture retenue repart seule quand plus aucun piéton n'est autour d'elle.
+  // Une voiture retenue repart seule quand plus aucun piéton n'est devant elle (ni près de
+  // sa voie), et au plus tard après `arretMax`.
   function gererRetenue(r: Roulante, dt: number): void {
     if (r.retenue === null) return;
-    r.retenue = pietonsAutour(r) ? 0 : r.retenue + dt;
+    const pc = config.pietons;
     const p = r.voiture.objet.position;
+    const devant = pietonPresDeLaVoie(
+      { x: p.x, z: p.z },
+      r.cap,
+      r.voiture.longueur / 2,
+      mobilesPietons,
+      pc.couloir + pc.vigilance,
+      pc.porteeVigilance,
+      pc.anticipation,
+    );
+    r.retenue = devant ? 0 : r.retenue + dt;
+    r.dureeRetenue += dt;
     r.main!.position.set(p.x, config.patience.hauteurAuDessus, p.z);
-    if (r.retenue < config.signe.liberation) return;
+    if (r.retenue < config.signe.liberation && r.dureeRetenue < config.signe.arretMax) return;
     r.retenue = null;
     scene.remove(r.main!);
     r.main = null;

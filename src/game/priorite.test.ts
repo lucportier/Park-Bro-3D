@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { config } from '../config';
 import {
+  contournement,
   distanceLibre,
   obstaclesPietons,
   peutAvancer,
@@ -140,6 +141,29 @@ describe('priorité piétonne', () => {
     while (plafond(passe) === 0) t += 0.1;
     expect(t).toBeCloseTo(reglages.delaiRedemarrage - 0.1, 5);
     expect(plafond(passe)).toBe(Infinity);
+  });
+
+  it('pas d\'attente sans fin : patient, il passe devant une voiture arrêtée', () => {
+    // Voiture arrêtée (pour d'autres piétons), pare-chocs à 1,2 m du chemin du piéton.
+    const arretee: VoitureVue = { x: -3.5, z: 0, cap: Math.PI / 2, demiLongueur: 2.3, demiLargeur: 1, roule: false };
+    const ici = { x: 0, z: -2.2 };
+    const but = { x: 0, z: 3 };
+    expect(peutAvancer(ici, but, [arretee], reglagesPieton)).toBe(false);
+    expect(peutAvancer(ici, but, [arretee], reglagesPieton, true)).toBe(true);
+    // Mais jamais devant une voiture qui roule.
+    expect(peutAvancer(ici, but, [{ ...arretee, roule: true }], reglagesPieton, true)).toBe(false);
+  });
+
+  it('il contourne une voiture arrêtée en travers de son chemin', () => {
+    const travers: VoitureVue = { x: 0, z: 0, cap: Math.PI / 2, demiLongueur: 2.3, demiLargeur: 1, roule: false };
+    const ici = { x: 0.5, z: -2 };
+    const but = { x: 0.5, z: 6 };
+    expect(peutAvancer(ici, but, [travers], reglagesPieton, true)).toBe(false);
+    const coin = contournement(ici, but, travers, reglagesPieton.margeCarrosserie);
+    // Le coin est hors de la voiture, et il peut y aller, puis repartir vers son but.
+    expect(Math.abs(coin.x)).toBeGreaterThan(2.3);
+    expect(peutAvancer(ici, coin, [travers], reglagesPieton, true)).toBe(true);
+    expect(peutAvancer(coin, but, [travers], reglagesPieton, true)).toBe(true);
   });
 
   it('un piéton attend au bord qu\'une voiture qui roule soit passée', () => {

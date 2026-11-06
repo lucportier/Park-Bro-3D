@@ -132,6 +132,10 @@ export const config = {
     margeCarrosserie: 0.9,
     margeAvant: 1.6,
     devantRoulante: 4,
+    // Après tant d'attente devant une voiture arrêtée, il passe devant elle ; après tant,
+    // si elle lui barre le chemin, il la contourne (s).
+    patience: 1.5,
+    patienceContournement: 3,
     // Les voitures : couloir où un piéton les arrête, distance gardée, et anticipation (s).
     couloir: 1.5,
     marge: 2,
@@ -156,6 +160,8 @@ export const config = {
     rayonArret: 12,
     zonePietons: 8,
     liberation: 1,
+    // Une voiture arrêtée par signe repart au plus tard après ce temps (s).
+    arretMax: 8,
   },
 
   // Facteurs d'échelle des modèles Kenney pour passer en mètres.

@@ -141,13 +141,32 @@ export interface ReglagesPieton {
 // ses flancs, et devant elle (bien plus loin si elle roule : il la laisse passer). S'il y
 // est déjà, il peut s'en écarter, et passer devant une voiture arrêtée, mais pas se
 // rapprocher d'une voiture qui roule. Quand il attend, il ne compte plus que là où il est
-// (vitesse nulle) : la voiture qui s'était arrêtée pour lui peut repartir, sans attente mutuelle.
-export function peutAvancer(depuis: Point, vers: Point, voitures: VoitureVue[], r: ReglagesPieton): boolean {
+// (vitesse nulle) : la voiture qui s'était arrêtée pour lui peut repartir.
+// `patient` : il attend depuis un moment devant une voiture arrêtée (souvent arrêtée pour
+// d'autres piétons) ; il passe alors devant elle, sans jamais la toucher.
+export function peutAvancer(
+  depuis: Point,
+  vers: Point,
+  voitures: VoitureVue[],
+  r: ReglagesPieton,
+  patient = false,
+): boolean {
+  return bloqueur(depuis, vers, voitures, r, patient) === null;
+}
+
+// La voiture qui empêche le prochain pas du piéton, ou null.
+export function bloqueur(
+  depuis: Point,
+  vers: Point,
+  voitures: VoitureVue[],
+  r: ReglagesPieton,
+  patient = false,
+): VoitureVue | null {
   const l = Math.hypot(vers.x - depuis.x, vers.z - depuis.z);
-  if (l === 0) return true;
+  if (l === 0) return null;
   const pas = { x: depuis.x + ((vers.x - depuis.x) / l) * 0.5, z: depuis.z + ((vers.z - depuis.z) / l) * 0.5 };
-  return voitures.every((v) => {
-    const avant = v.roule ? r.devantRoulante : r.margeAvant;
+  const libre = (v: VoitureVue): boolean => {
+    const avant = v.roule ? r.devantRoulante : patient ? CONTACT : r.margeAvant;
     const apres = repere(pas, v);
     if (!tropPres(apres, v, r.margeCarrosserie, avant)) return true;
     const ici = repere(depuis, v);
@@ -156,5 +175,25 @@ export function peutAvancer(depuis: Point, vers: Point, voitures: VoitureVue[], 
     // d'une voiture qui roule.
     if (tropPres(apres, v, CONTACT, CONTACT) && !tropPres(ici, v, CONTACT, CONTACT)) return false;
     return !v.roule || apres.lat >= ici.lat - 1e-9;
-  });
+  };
+  return voitures.find((v) => !libre(v)) ?? null;
+}
+
+// Point où passer pour contourner une voiture arrêtée en travers du chemin : le coin de sa
+// carrosserie (élargie de `marge`) qui allonge le moins le trajet, du côté du piéton.
+export function contournement(depuis: Point, vers: Point, v: VoitureVue, marge: number): Point {
+  const ax = { x: Math.sin(v.cap), z: Math.cos(v.cap) };
+  const lat = { x: Math.cos(v.cap), z: -Math.sin(v.cap) };
+  const coins: Point[] = [];
+  for (const sl of [-1, 1]) {
+    for (const st of [-1, 1]) {
+      const l = sl * (v.demiLongueur + marge);
+      const t = st * (v.demiLargeur + marge);
+      coins.push({ x: v.x + ax.x * l + lat.x * t, z: v.z + ax.z * l + lat.z * t });
+    }
+  }
+  const d = (p: Point, q: Point) => Math.hypot(p.x - q.x, p.z - q.z);
+  // Les deux coins les plus proches du piéton sont de son côté : il y va sans traverser la voiture.
+  const proches = coins.sort((p, q) => d(depuis, p) - d(depuis, q)).slice(0, 2);
+  return proches.reduce((m, c) => (d(depuis, c) + d(c, vers) < d(depuis, m) + d(m, vers) ? c : m));
 }

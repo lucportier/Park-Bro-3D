@@ -44,10 +44,16 @@ export function projeter(r: Reseau, p: Point): Projection {
   return meilleure!;
 }
 
+// Une voiture ne fait jamais demi-tour : un virage de plus de 120° est interdit.
+const VIRAGE_MAX = -0.5;
+// Sur un premier tronçon plus court que ça, c'est l'orientation de la voiture elle-même
+// qui compte au premier carrefour : elle n'a pas la place de se réaligner avant (m).
+const DEPART_COURT = 6;
+
 // Plus court chemin sur la chaussée, du point le plus proche de `de` au point le plus
 // proche de `vers`. Le réseau est minuscule : un Dijkstra naïf suffit.
-// Avec `cap` (direction (sin cap, cos cap) d'une voiture), le chemin part vers l'avant :
-// une voiture ne fait pas marche arrière, elle fait le tour s'il le faut.
+// Avec `cap` (direction (sin cap, cos cap) d'une voiture), le chemin part vers l'avant et
+// ne fait jamais demi-tour : une voiture fait le tour s'il le faut.
 export function chemin(r: Reseau, de: Point, vers: Point, cap?: number): Point[] {
   const a = projeter(r, de);
   const b = projeter(r, vers);
@@ -71,41 +77,56 @@ export function chemin(r: Reseau, de: Point, vers: Point, cap?: number): Point[]
     for (let k = 0; k + 1 < coupes.length; k++) relier(coupes[k]!.n, coupes[k + 1]!.n);
   });
 
-  if (cap !== undefined) {
-    // On ne garde au départ que le morceau qui va le plus dans le sens de la voiture.
-    const sens = (w: number) =>
-      ((noeuds[w]!.x - noeuds[ia]!.x) * Math.sin(cap) + (noeuds[w]!.z - noeuds[ia]!.z) * Math.cos(cap)) /
-      distance(noeuds[w]!, noeuds[ia]!);
-    const departs = voisins[ia]!.filter((n) => distance(noeuds[n.vers]!, noeuds[ia]!) > 1e-6);
-    if (departs.length > 0) {
-      const meilleur = departs.reduce((m, n) => (sens(n.vers) > sens(m.vers) ? n : m));
-      voisins[ia] = [meilleur, ...voisins[ia]!.filter((n) => distance(noeuds[n.vers]!, noeuds[ia]!) <= 1e-6)];
-    }
-  }
+  const direction = (i: number, j: number): Point | null => {
+    const d = distance(noeuds[i]!, noeuds[j]!);
+    return d > 1e-6 ? { x: (noeuds[j]!.x - noeuds[i]!.x) / d, z: (noeuds[j]!.z - noeuds[i]!.z) / d } : null;
+  };
+  const orientation = cap !== undefined ? { x: Math.sin(cap), z: Math.cos(cap) } : null;
+  // D'abord un départ franchement vers l'avant ; s'il n'y en a pas (voiture en travers),
+  // le départ le moins brusque.
+  const points = plusCourt(0) ?? plusCourt(VIRAGE_MAX) ?? [];
+  // Sans chemin possible (ne devrait pas arriver sur un anneau), on vise le but tout droit.
+  return points.length > 0 ? points : [a.point, b.point];
 
-  const dist = noeuds.map(() => Infinity);
-  const precedent = noeuds.map(() => -1);
-  const fait = noeuds.map(() => false);
-  dist[ia] = 0;
-  for (;;) {
-    let u = -1;
-    for (let i = 0; i < noeuds.length; i++) if (!fait[i] && (u < 0 || dist[i]! < dist[u]!)) u = i;
-    if (u < 0 || dist[u] === Infinity || u === ib) break;
-    fait[u] = true;
-    for (const { vers: w, cout } of voisins[u]!) {
-      if (dist[u]! + cout < dist[w]!) {
-        dist[w] = dist[u]! + cout;
-        precedent[w] = u;
+  // Dijkstra sur des états (nœud, direction d'arrivée), pour interdire les demi-tours.
+  function plusCourt(seuilDepart: number): Point[] | null {
+    interface Etat {
+      n: number;
+      // Directions d'arrivée à respecter : celle du tronçon, et sur un premier tronçon
+      // court, l'orientation de la voiture (elle n'a pas la place de se réaligner avant).
+      dirs: Point[];
+      roule: number;
+      cout: number;
+      precedent: Etat | null;
+    }
+    const ouverts: Etat[] = [{ n: ia, dirs: orientation ? [orientation] : [], roule: 0, cout: 0, precedent: null }];
+    const faits = new Set<string>();
+    const cle = (e: Etat) => `${e.n}|${e.dirs.map((d) => `${d.x.toFixed(3)},${d.z.toFixed(3)}`).join(';')}`;
+    while (ouverts.length > 0) {
+      let k = 0;
+      for (let i = 1; i < ouverts.length; i++) if (ouverts[i]!.cout < ouverts[k]!.cout) k = i;
+      const e = ouverts.splice(k, 1)[0]!;
+      if (faits.has(cle(e))) continue;
+      faits.add(cle(e));
+      if (e.n === ib) {
+        const pts: Point[] = [];
+        for (let p: Etat | null = e; p; p = p.precedent) {
+          const q = noeuds[p.n]!;
+          if (pts.length === 0 || distance(pts[0]!, q) > 1e-6) pts.unshift(q);
+        }
+        return pts;
+      }
+      const auDepart = e.roule < 1e-6;
+      for (const { vers: w, cout } of voisins[e.n]!) {
+        const sortie = direction(e.n, w);
+        const seuil = auDepart && orientation ? seuilDepart : VIRAGE_MAX;
+        if (sortie && e.dirs.some((d) => d.x * sortie.x + d.z * sortie.z <= seuil)) continue;
+        const dirs = !sortie ? e.dirs : auDepart && orientation && cout < DEPART_COURT ? [sortie, orientation] : [sortie];
+        ouverts.push({ n: w, dirs, roule: e.roule + cout, cout: e.cout + cout, precedent: e });
       }
     }
+    return null;
   }
-
-  const points: Point[] = [];
-  for (let n = ib; n >= 0; n = precedent[n]!) {
-    points.unshift(noeuds[n]!);
-    if (n === ia) break;
-  }
-  return points;
 }
 
 export function longueur(points: Point[]): number {
