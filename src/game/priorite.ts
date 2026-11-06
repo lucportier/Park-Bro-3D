@@ -39,21 +39,68 @@ export function distanceLibre(pos: Point, cap: number, demiLongueur: number, lib
   return Math.max(0, libre);
 }
 
-// Chaque piéton compte deux fois : là où il est, et là où il sera bientôt. La voiture
-// freine donc avant qu'il n'entre dans son couloir, pas au dernier moment.
+// Chaque piéton compte là où il est, et tout le long du chemin qu'il fera bientôt (un point
+// par demi-seconde) : la voiture freine avant qu'il n'entre dans son couloir, pas au
+// dernier moment, et ne repart pas pendant qu'il s'en approche.
 export function obstaclesPietons(pietons: PietonMobile[], r: ReglagesPriorite): Obstacle[] {
   const liste: Obstacle[] = [];
   for (const p of pietons) {
-    liste.push({ point: { x: p.x, z: p.z }, demiLargeur: r.couloir, marge: r.marge });
-    if (p.vx !== 0 || p.vz !== 0) {
-      liste.push({
-        point: { x: p.x + p.vx * r.anticipation, z: p.z + p.vz * r.anticipation },
-        demiLargeur: r.couloir,
-        marge: r.marge,
-      });
+    const bouge = p.vx !== 0 || p.vz !== 0;
+    for (let t = 0; t <= (bouge ? r.anticipation : 0) + 1e-9; t += 0.5) {
+      liste.push({ point: { x: p.x + p.vx * t, z: p.z + p.vz * t }, demiLargeur: r.couloir, marge: r.marge });
     }
   }
   return liste;
+}
+
+// Un piéton est-il (ou sera-t-il bientôt) près de la voie, devant la voiture ou à côté
+// d'elle ? Elle roule alors au pas : elle peut s'arrêter en douceur s'il traverse, et ne
+// le dépasse que lentement.
+export function pietonPresDeLaVoie(
+  pos: Point,
+  cap: number,
+  demiLongueur: number,
+  pietons: PietonMobile[],
+  largeur: number,
+  portee: number,
+  anticipation: number,
+): boolean {
+  const dir = { x: Math.sin(cap), z: Math.cos(cap) };
+  const pres = (x: number, z: number): boolean => {
+    const dx = x - pos.x;
+    const dz = z - pos.z;
+    const devant = dx * dir.x + dz * dir.z;
+    return devant > -demiLongueur && devant < portee && Math.abs(dx * dir.z - dz * dir.x) < largeur;
+  };
+  return pietons.some((p) => pres(p.x, p.z) || pres(p.x + p.vx * anticipation, p.z + p.vz * anticipation));
+}
+
+export interface ReglagesPrudence extends ReglagesPriorite {
+  vigilance: number;
+  porteeVigilance: number;
+  vitesseVigilance: number;
+  delaiRedemarrage: number;
+}
+
+// Plafond de vitesse d'une voiture à cause des piétons : à l'arrêt tant qu'un piéton la
+// bloque et encore `delaiRedemarrage` secondes après, puis au pas tant qu'un piéton
+// marche près de sa voie devant elle. `etat.reprise` garde l'attente d'une image à l'autre.
+export function plafondPietons(
+  etat: { reprise: number },
+  pos: Point,
+  cap: number,
+  demiLongueur: number,
+  pietons: PietonMobile[],
+  r: ReglagesPrudence,
+  dt: number,
+): number {
+  if (distanceLibre(pos, cap, demiLongueur, 1, obstaclesPietons(pietons, r)) < 0.3) etat.reprise = r.delaiRedemarrage;
+  else etat.reprise = Math.max(0, etat.reprise - dt);
+  if (etat.reprise > 0) return 0;
+  if (pietonPresDeLaVoie(pos, cap, demiLongueur, pietons, r.couloir + r.vigilance, r.porteeVigilance + demiLongueur, r.anticipation)) {
+    return r.vitesseVigilance;
+  }
+  return Infinity;
 }
 
 // Voiture vue par un piéton : centre, cap, demi-dimensions et si elle roule.
@@ -66,37 +113,48 @@ export interface VoitureVue {
   roule: boolean;
 }
 
-// Le point p est-il dans la carrosserie de la voiture, élargie de `marge` ?
-function dansCarrosserie(p: Point, v: VoitureVue, marge: number): boolean {
+// Position du point p dans le repère de la voiture : en avant du centre, et sur le côté.
+function repere(p: Point, v: VoitureVue): { long: number; lat: number } {
   const dx = p.x - v.x;
   const dz = p.z - v.z;
-  const long = dx * Math.sin(v.cap) + dz * Math.cos(v.cap);
-  const lat = dx * Math.cos(v.cap) - dz * Math.sin(v.cap);
-  return Math.abs(long) < v.demiLongueur + marge && Math.abs(lat) < v.demiLargeur + marge;
+  return { long: dx * Math.sin(v.cap) + dz * Math.cos(v.cap), lat: Math.abs(dx * Math.cos(v.cap) - dz * Math.sin(v.cap)) };
 }
+
+// Le point est-il trop près de la voiture : à moins de `cote` de ses flancs et de son
+// arrière, ou à moins de `avant` devant son pare-chocs ?
+function tropPres(q: { long: number; lat: number }, v: VoitureVue, cote: number, avant: number): boolean {
+  return q.long > -v.demiLongueur - cote && q.long < v.demiLongueur + avant && q.lat < v.demiLargeur + cote;
+}
+
+// Distance en dessous de laquelle un piéton touche presque une carrosserie (m).
+const CONTACT = 0.3;
 
 export interface ReglagesPieton {
-  // Il laisse passer une voiture qui roule à moins de cette distance devant lui (m).
-  distanceVoiture: number;
-  // Il ne marche pas plus près que ça d'une carrosserie (m).
+  // Distance gardée sur les côtés d'une voiture (m).
   margeCarrosserie: number;
+  // Devant le pare-chocs : une voiture à l'arrêt, une voiture qui roule (m).
+  margeAvant: number;
+  devantRoulante: number;
 }
 
-// Le piéton peut-il faire son prochain pas ? Il attend une voiture qui roule tout près
-// devant lui, et ne marche jamais dans une carrosserie, même à l'arrêt.
-// Quand il attend, il ne compte plus que là où il est (vitesse nulle) : la voiture qui
-// s'était arrêtée pour lui peut repartir, il n'y a pas d'attente mutuelle.
+// Le piéton peut-il faire son prochain pas ? Il n'entre jamais dans la zone d'une voiture :
+// ses flancs, et devant elle (bien plus loin si elle roule : il la laisse passer). S'il y
+// est déjà, il peut s'en écarter, et passer devant une voiture arrêtée, mais pas se
+// rapprocher d'une voiture qui roule. Quand il attend, il ne compte plus que là où il est
+// (vitesse nulle) : la voiture qui s'était arrêtée pour lui peut repartir, sans attente mutuelle.
 export function peutAvancer(depuis: Point, vers: Point, voitures: VoitureVue[], r: ReglagesPieton): boolean {
   const l = Math.hypot(vers.x - depuis.x, vers.z - depuis.z);
   if (l === 0) return true;
-  const ux = (vers.x - depuis.x) / l;
-  const uz = (vers.z - depuis.z) / l;
-  const devant = { x: depuis.x + ux * 1.5, z: depuis.z + uz * 1.5 };
-  const pas = { x: depuis.x + ux * 0.5, z: depuis.z + uz * 0.5 };
-  return voitures.every(
-    (v) =>
-      !(v.roule && Math.hypot(v.x - devant.x, v.z - devant.z) <= r.distanceVoiture) &&
-      // On peut toujours s'éloigner d'une voiture trop proche, jamais s'en approcher.
-      !(dansCarrosserie(pas, v, r.margeCarrosserie) && !dansCarrosserie(depuis, v, r.margeCarrosserie)),
-  );
+  const pas = { x: depuis.x + ((vers.x - depuis.x) / l) * 0.5, z: depuis.z + ((vers.z - depuis.z) / l) * 0.5 };
+  return voitures.every((v) => {
+    const avant = v.roule ? r.devantRoulante : r.margeAvant;
+    const apres = repere(pas, v);
+    if (!tropPres(apres, v, r.margeCarrosserie, avant)) return true;
+    const ici = repere(depuis, v);
+    if (!tropPres(ici, v, r.margeCarrosserie, avant)) return false;
+    // Déjà trop près : il ne se colle jamais à la carrosserie, et ne se rapproche pas
+    // d'une voiture qui roule.
+    if (tropPres(apres, v, CONTACT, CONTACT) && !tropPres(ici, v, CONTACT, CONTACT)) return false;
+    return !v.roule || apres.lat >= ici.lat - 1e-9;
+  });
 }

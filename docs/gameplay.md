@@ -45,8 +45,10 @@ Le joueur incarne un agent de parking qui se déplace à pied.
 
 - **Règle non négociable : une voiture ne roule jamais sur un piéton.** Elle s'arrête et attend.
 - Les occupants d'une voiture garée (1 à 3) en descendent l'un après l'autre et marchent ensemble jusqu'à l'entrée du parc des expos : le long de l'arrière des voitures, puis par l'allée piétonne centrale et ses passages zébrés, puis le trottoir.
-- Une voiture freine pour un piéton qui est dans son couloir, ou qui va y entrer dans la seconde. Un piéton qui longe l'allée sans entrer dans la voie ne l'arrête pas.
-- Par politesse, un piéton laisse passer une voiture qui roule tout près devant lui, et ne marche jamais dans une carrosserie, même arrêtée.
+- Une voiture s'arrête **à 2 m** d'un piéton qui est dans sa voie, ou qui va y entrer dans les 3 secondes. Elle roule au pas (2 m/s) dès qu'un piéton est près de sa voie, devant elle ou à côté.
+- Après s'être arrêtée pour un piéton, elle attend 1,5 s avant de repartir, sauf si l'agent lui fait signe (elle ne repart de toute façon jamais avec un piéton devant elle).
+- Un piéton laisse passer une voiture qui roule (il ne passe pas dans les 4 m devant elle), ne passe jamais à moins de 1,6 m devant une voiture arrêtée, et garde ses distances avec les flancs.
+- **Arrêt par prudence** : un signe de l'agent près d'une voiture qui roule (moins de 12 m), avec des piétons à moins de 8 m d'elle, l'arrête. Une main rouge s'affiche au-dessus d'elle ; elle repart seule quand plus aucun piéton n'est autour, et le joueur gagne des points de prudence.
 - Des piétons traversent aussi la route d'entrée ; les voitures en approche s'arrêtent avant le passage.
 
 ### 3.4 Score
@@ -56,6 +58,7 @@ Le joueur incarne un agent de parking qui se déplace à pied.
 | Voiture placée par le joueur                                    | +10    |
 | Bonus : placée avant d'avoir perdu la moitié de sa patience     | +15    |
 | Voiture garée seule, patience épuisée                           | −5     |
+| Voiture arrêtée par prudence devant des piétons (une fois par voiture) | +5 |
 
 Les deux premières lignes se cumulent : une voiture placée rapidement rapporte 25 points. Le score ne descend jamais sous 0.
 
@@ -109,4 +112,6 @@ Valeurs initiales, à régler en jouant dans `src/config.ts`.
 | Rayon du geste « faire signe »        | 30 m                |
 | Vitesse des voitures                  | 7 à 9 unités/s      |
 | Vitesse des piétons                   | 1,6 à 2,1 unités/s  |
+| Arrêt d'une voiture devant un piéton  | 2 m, puis 1,5 s avant de repartir |
+| Arrêt par prudence (signe)            | voiture à moins de 12 m, piétons à moins de 8 m |
 | Durée réelle de 08:00 à 11:00         | environ 4 min       |

@@ -25,12 +25,17 @@ function surEvenement(e: Evenement): void {
     pietons.faireDescendre(e.place);
     return;
   }
-  const points = e.type === 'placee' ? pointsPlacement(e.patienceRestante, config.score) : config.score.gareeSeule;
+  const points =
+    e.type === 'placee'
+      ? pointsPlacement(e.patienceRestante, config.score)
+      : e.type === 'prudence'
+        ? config.score.prudence
+        : config.score.gareeSeule;
   score = ajouter(score, points);
   afficherScore(score);
   const ecran = e.position.clone().setY(3).project(camera);
   pointsVolants(
-    points > 0 ? `+${points}` : `${points}`,
+    (points > 0 ? `+${points}` : `${points}`) + (e.type === 'prudence' ? ' Prudence' : ''),
     ((ecran.x + 1) / 2) * window.innerWidth,
     ((1 - ecran.y) / 2) * window.innerHeight,
     points > 0,

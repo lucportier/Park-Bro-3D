@@ -21,7 +21,7 @@ export const config = {
     placesParDemiRangee: 5,
     largeurPlace: 3,
     profondeurPlace: 5.5,
-    largeurAllee: 6.5,
+    largeurAllee: 7,
     largeurAlleePietonne: 3,
     largeurTrottoir: 4,
     voituresGareesAuDepart: 6,
@@ -73,7 +73,7 @@ export const config = {
     distanceChoix: 9,
     vitesse: 4.5,
     // On roule à droite de la ligne médiane des allées (m).
-    decalageDroite: 1.4,
+    decalageDroite: 1.5,
     // À cette distance de l'allée devant sa place, la voiture entame sa manœuvre (m).
     distanceManoeuvre: 4.5,
     vitesseManoeuvre: 2.5,
@@ -101,6 +101,8 @@ export const config = {
     // Bonus si la voiture est placée avec plus de cette part de patience.
     seuilBonus: 0.5,
     gareeSeule: -5,
+    // Voiture arrêtée par prudence devant des piétons (une fois par voiture).
+    prudence: 5,
   },
 
   // Occupants qui descendent d'une voiture garée et marchent jusqu'au parc des expos.
@@ -124,14 +126,23 @@ export const config = {
     ecartGroupe: 0.7,
     largeurPorte: 6,
     dureeDisparition: 0.35,
-    // Un piéton attend qu'une voiture qui roule à moins de cette distance devant lui soit passée (m).
-    distanceVoiture: 3,
-    // Et ne marche jamais plus près que ça d'une carrosserie, même arrêtée (m).
-    margeCarrosserie: 0.4,
+    // Un piéton ne passe jamais à moins de ça des flancs d'une voiture (m), ni devant son
+    // pare-chocs à moins de `margeAvant` si elle est arrêtée, `devantRoulante` si elle roule
+    // (il la laisse passer).
+    margeCarrosserie: 0.9,
+    margeAvant: 1.6,
+    devantRoulante: 4,
     // Les voitures : couloir où un piéton les arrête, distance gardée, et anticipation (s).
     couloir: 1.5,
-    marge: 1.2,
-    anticipation: 1,
+    marge: 2,
+    anticipation: 3,
+    // Au pas quand un piéton marche à moins de ça de leur couloir, sur cette portée (m, m/s).
+    vigilance: 3,
+    porteeVigilance: 10,
+    vitesseVigilance: 2,
+    // Après s'être arrêtée pour un piéton, elle attend ce temps avant de repartir (s),
+    // sauf si l'agent lui fait signe.
+    delaiRedemarrage: 1.5,
   },
 
   signe: {
@@ -139,6 +150,12 @@ export const config = {
     rayon: 30,
     // Durée du geste (s).
     duree: 0.7,
+    // Arrêt par prudence : un signe arrête une voiture qui roule à cette distance de l'agent
+    // si des piétons sont à moins de `zonePietons` d'elle. Elle repart seule quand ils
+    // sont loin depuis `liberation` secondes (m, m, s).
+    rayonArret: 12,
+    zonePietons: 8,
+    liberation: 1,
   },
 
   // Facteurs d'échelle des modèles Kenney pour passer en mètres.
