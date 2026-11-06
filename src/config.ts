@@ -103,6 +103,37 @@ export const config = {
     gareeSeule: -5,
   },
 
+  // Occupants qui descendent d'une voiture garée et marchent jusqu'au parc des expos.
+  pietons: {
+    modeles: [
+      'character-female-a', 'character-female-b', 'character-female-c', 'character-female-d',
+      'character-female-e', 'character-female-f', 'character-male-a', 'character-male-c',
+      'character-male-d', 'character-male-e', 'character-male-f',
+    ],
+    occupantsMin: 1,
+    occupantsMax: 3,
+    // Temps entre l'arrêt de la voiture et la descente de chaque occupant (s).
+    delaiDescente: 0.6,
+    vitesseMin: 1.6,
+    vitesseMax: 2.1,
+    // Vitesse pour laquelle l'animation de marche ne glisse pas (m/s).
+    vitesseAnimation: 2.2,
+    // Distance entre l'arrière des voitures garées et le chemin des piétons dans l'allée (m).
+    decalageAllee: 0.2,
+    // Écart entre deux occupants d'une même voiture qui marchent côte à côte (m).
+    ecartGroupe: 0.7,
+    largeurPorte: 6,
+    dureeDisparition: 0.35,
+    // Un piéton attend qu'une voiture qui roule à moins de cette distance devant lui soit passée (m).
+    distanceVoiture: 3,
+    // Et ne marche jamais plus près que ça d'une carrosserie, même arrêtée (m).
+    margeCarrosserie: 0.4,
+    // Les voitures : couloir où un piéton les arrête, distance gardée, et anticipation (s).
+    couloir: 1.5,
+    marge: 1.2,
+    anticipation: 1,
+  },
+
   signe: {
     // Distance à laquelle la voiture de tête remarque le geste (m).
     rayon: 30,

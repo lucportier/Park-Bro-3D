@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import './ui/style.css';
 import { creerAgent, type Agent } from './game/agent';
+import { creerPietons } from './game/pietons';
 import { creerVoitures, type Evenement } from './game/voitures';
 import { ajouter, pointsPlacement } from './game/score';
 import { config } from './config';
@@ -18,7 +19,12 @@ creerDecor(scene).catch((erreur) => console.error('Décor non chargé', erreur))
 
 // Score : +10 (et +15 si la voiture est placée vite) par le joueur, −5 si elle se gare seule.
 let score = 0;
+const pietons = creerPietons(scene);
 function surEvenement(e: Evenement): void {
+  if (e.type === 'garee') {
+    pietons.faireDescendre(e.place);
+    return;
+  }
   const points = e.type === 'placee' ? pointsPlacement(e.patienceRestante, config.score) : config.score.gareeSeule;
   score = ajouter(score, points);
   afficherScore(score);
@@ -73,7 +79,8 @@ function boucle(temps: number): void {
     suivre(camera, agent.objet.position, dt);
     const tap = prendreTap();
     if (tap) taper(tap.x, tap.y);
-    voitures.mettreAJour(dt, agent.objet.position, signe);
+    pietons.mettreAJour(dt, voitures.roulantes());
+    voitures.mettreAJour(dt, agent.objet.position, signe, pietons.mobiles());
   }
   rendu.render(scene, camera);
   requestAnimationFrame(boucle);

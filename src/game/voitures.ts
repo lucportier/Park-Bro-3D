@@ -3,6 +3,7 @@ import { config } from '../config';
 import { modele } from '../scene/modeles';
 import { chemin, longueur, pointA, type Point } from './chaussee';
 import { avancerFile, type VoitureEnFile } from './file';
+import { distanceLibre, obstaclesPietons, type Obstacle, type PietonMobile, type VoitureVue } from './priorite';
 import { perteDePatience } from './score';
 import { chaussee, entreeDePlace, places, placesOccupeesAuDepart, plan, type Place } from './parking';
 
@@ -24,6 +25,7 @@ interface Voiture extends VoitureEnFile {
   // Patience restante (s) et jauge au-dessus de la voiture.
   patience: number;
   jauge: Jauge;
+  largeur: number;
   objet: THREE.Object3D;
   roues: THREE.Object3D[];
 }
@@ -43,20 +45,10 @@ interface Roulante {
   courbe: { points: Point[]; s: number } | null;
 }
 
-type Obstacle = { point: Point; demiLargeur: number; marge: number };
-
 // Distance que la voiture peut encore parcourir avant un obstacle dans son couloir.
 function libreDevant(r: Roulante, libre: number, obstacles: Obstacle[]): number {
   const pos = r.voiture.objet.position;
-  const dir = { x: Math.sin(r.cap), z: Math.cos(r.cap) };
-  for (const o of obstacles) {
-    const dx = o.point.x - pos.x;
-    const dz = o.point.z - pos.z;
-    const devant = dx * dir.x + dz * dir.z;
-    const cote = Math.abs(dx * dir.z - dz * dir.x);
-    if (devant > 0 && cote < o.demiLargeur) libre = Math.min(libre, devant - r.voiture.longueur / 2 - o.marge);
-  }
-  return Math.max(0, libre);
+  return distanceLibre({ x: pos.x, z: pos.z }, r.cap, r.voiture.longueur / 2, libre, obstacles);
 }
 
 // Courbe de Bézier de la position actuelle au centre de la place, qui arrive nez en avant.
@@ -208,7 +200,8 @@ function creerSurbrillances(scene: THREE.Scene): { meshes: THREE.Mesh[]; materia
 // de patience qui lui restait), ou garée seule faute d'attention.
 export type Evenement =
   | { type: 'placee'; patienceRestante: number; position: THREE.Vector3 }
-  | { type: 'seule'; position: THREE.Vector3 };
+  | { type: 'seule'; position: THREE.Vector3 }
+  | { type: 'garee'; place: Place };
 
 // Petite jauge de patience flottant au-dessus d'une voiture, toujours tournée vers la caméra.
 interface Jauge {
@@ -260,6 +253,7 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
   const surbrillances = creerSurbrillances(scene);
   let temps = 0;
   let agentPos = new THREE.Vector3();
+  let pietons: Obstacle[] = [];
 
   async function faireArriver(): Promise<void> {
     enChargement = true;
@@ -267,7 +261,8 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
     const objet = await modele(`voitures/${nom}`, config.echelles.voiture);
     // Avant du modèle vers +z : un quart de tour pour rouler vers l'est.
     objet.rotation.y = Math.PI / 2;
-    const longueurVoiture = new THREE.Box3().setFromObject(objet).getSize(new THREE.Vector3()).x;
+    const taille = new THREE.Box3().setFromObject(objet).getSize(new THREE.Vector3());
+    const longueurVoiture = taille.x;
     const vitesseMax = aleatoire(v.vitesseMin, v.vitesseMax);
     const roues = objet.children.filter((o) => o.name.startsWith('wheel'));
     const voiture: Voiture = {
@@ -277,6 +272,7 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
       vitesse: vitesseMax,
       vitesseMax,
       longueur: longueurVoiture,
+      largeur: taille.z,
       patience: config.patience.duree,
       jauge: creerJauge(scene),
     };
@@ -343,10 +339,10 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
   }
 
   // Obstacles pour une voiture qui roule : l'agent, et les voitures parties avant elle.
-  function obstaclesPour(r: Roulante) {
+  function obstaclesPour(r: Roulante): Obstacle[] {
     // En se garant, la voiture roule au pas : elle peut s'approcher plus près de l'agent.
     const marge = r.place ? ga.margeAgent : ap.distanceAgent;
-    const liste = [{ point: { x: agentPos.x, z: agentPos.z }, demiLargeur: ga.couloirAgent, marge }];
+    const liste = [{ point: { x: agentPos.x, z: agentPos.z }, demiLargeur: ga.couloirAgent, marge }, ...pietons];
     for (const autre of garages) {
       if (autre !== r && autre.ordre < r.ordre) {
         const p = autre.voiture.objet.position;
@@ -419,8 +415,21 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
       return true;
     },
 
-    mettreAJour(dt: number, agent: THREE.Vector3, signe: boolean): void {
+    // Voitures qui roulent dans le parking : les piétons les laissent passer.
+    roulantes(): VoitureVue[] {
+      return [...(approche ? [approche] : []), ...garages].map((r) => ({
+        x: r.voiture.objet.position.x,
+        z: r.voiture.objet.position.z,
+        cap: r.cap,
+        demiLongueur: r.voiture.longueur / 2,
+        demiLargeur: r.voiture.largeur / 2,
+        roule: r.voiture.vitesse > 0.5,
+      }));
+    },
+
+    mettreAJour(dt: number, agent: THREE.Vector3, signe: boolean, mobiles: PietonMobile[]): void {
       agentPos = agent;
+      pietons = obstaclesPietons(mobiles, config.pietons);
       temps += dt;
       prochaineArrivee -= dt;
       if (
@@ -465,7 +474,11 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
         avancerVersAgent(approche, dt);
       }
       for (let i = garages.length - 1; i >= 0; i--) {
-        if (allerSeGarer(garages[i]!, dt)) garages.splice(i, 1);
+        const r = garages[i]!;
+        if (allerSeGarer(r, dt)) {
+          garages.splice(i, 1);
+          surEvenement({ type: 'garee', place: r.place! });
+        }
       }
 
       gererPatience(dt);
