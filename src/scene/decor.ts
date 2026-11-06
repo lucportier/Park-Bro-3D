@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { config } from '../config';
-import { places, plan, type Rect } from '../game/parking';
+import { places, placesOccupeesAuDepart, plan, type Rect } from '../game/parking';
 import { modele } from './modeles';
 
 const c = config.couleurs;
@@ -171,10 +171,8 @@ async function lampadaires(scene: THREE.Scene): Promise<void> {
 
 // Quelques voitures déjà garées, réparties dans le parking.
 async function voituresGarees(scene: THREE.Scene): Promise<void> {
-  const nombre = config.parking.voituresGareesAuDepart;
-  const pas = Math.floor(places.length / nombre);
-  for (let i = 0; i < nombre; i++) {
-    const place = places[(i * pas + 3 * i) % places.length]!;
+  for (const [i, id] of placesOccupeesAuDepart.entries()) {
+    const place = places[id]!;
     const voiture = await modele(`voitures/${config.voitures.modeles[i % config.voitures.modeles.length]}`, e.voiture);
     voiture.position.set(place.x, 0, place.z);
     voiture.rotation.y = place.angle;

@@ -65,6 +65,27 @@ function creerPlaces(): Place[] {
 
 export const places = creerPlaces();
 
+// Places déjà occupées au début de la partie, réparties dans le parking.
+export const placesOccupeesAuDepart: number[] = (() => {
+  const nombre = config.parking.voituresGareesAuDepart;
+  const pas = Math.floor(places.length / nombre);
+  return Array.from({ length: nombre }, (_, i) => (i * pas + 3 * i) % places.length);
+})();
+
+// Place qui contient le point (x, z) du sol, ou null.
+export function placeSous(x: number, z: number): Place | null {
+  return (
+    places.find((pl) => Math.abs(x - pl.x) <= p.largeurPlace / 2 && Math.abs(z - pl.z) <= p.profondeurPlace / 2) ?? null
+  );
+}
+
+// Point de l'allée situé juste devant l'entrée de la place (l'allée qui la dessert).
+export function entreeDePlace(pl: Place): { x: number; z: number; versPlace: number } {
+  // Le nez de la voiture garée pointe vers (sin angle, cos angle) : on entre en marche avant.
+  const versPlace = Math.cos(pl.angle) > 0 ? 1 : -1;
+  return { x: pl.x, z: pl.z - versPlace * (p.profondeurPlace / 2 + p.largeurAllee / 2), versPlace };
+}
+
 // Voies de circulation latérales qui relient les deux allées.
 const largeurVoieLaterale = p.largeurAllee;
 

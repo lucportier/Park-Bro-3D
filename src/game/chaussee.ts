@@ -46,7 +46,9 @@ export function projeter(r: Reseau, p: Point): Projection {
 
 // Plus court chemin sur la chaussée, du point le plus proche de `de` au point le plus
 // proche de `vers`. Le réseau est minuscule : un Dijkstra naïf suffit.
-export function chemin(r: Reseau, de: Point, vers: Point): Point[] {
+// Avec `cap` (direction (sin cap, cos cap) d'une voiture), le chemin part vers l'avant :
+// une voiture ne fait pas marche arrière, elle fait le tour s'il le faut.
+export function chemin(r: Reseau, de: Point, vers: Point, cap?: number): Point[] {
   const a = projeter(r, de);
   const b = projeter(r, vers);
   const noeuds = [...r.noeuds, a.point, b.point];
@@ -68,6 +70,18 @@ export function chemin(r: Reseau, de: Point, vers: Point): Point[] {
     ].sort((u, v) => u.t - v.t);
     for (let k = 0; k + 1 < coupes.length; k++) relier(coupes[k]!.n, coupes[k + 1]!.n);
   });
+
+  if (cap !== undefined) {
+    // On ne garde au départ que le morceau qui va le plus dans le sens de la voiture.
+    const sens = (w: number) =>
+      ((noeuds[w]!.x - noeuds[ia]!.x) * Math.sin(cap) + (noeuds[w]!.z - noeuds[ia]!.z) * Math.cos(cap)) /
+      distance(noeuds[w]!, noeuds[ia]!);
+    const departs = voisins[ia]!.filter((n) => distance(noeuds[n.vers]!, noeuds[ia]!) > 1e-6);
+    if (departs.length > 0) {
+      const meilleur = departs.reduce((m, n) => (sens(n.vers) > sens(m.vers) ? n : m));
+      voisins[ia] = [meilleur, ...voisins[ia]!.filter((n) => distance(noeuds[n.vers]!, noeuds[ia]!) <= 1e-6)];
+    }
+  }
 
   const dist = noeuds.map(() => Infinity);
   const precedent = noeuds.map(() => -1);

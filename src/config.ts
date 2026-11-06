@@ -67,6 +67,23 @@ export const config = {
     visee: 3.5,
   },
 
+  // La voiture prête reçoit sa place quand le joueur la tape, puis va s'y garer.
+  garage: {
+    // Distance entre l'agent et la voiture pour qu'elle attende sa place (m).
+    distanceChoix: 9,
+    vitesse: 4.5,
+    // On roule à droite de la ligne médiane des allées (m).
+    decalageDroite: 1.4,
+    // À cette distance de l'allée devant sa place, la voiture entame sa manœuvre (m).
+    distanceManoeuvre: 4.5,
+    vitesseManoeuvre: 2.5,
+    // Demi-largeur du couloir devant une voiture où l'agent ou une autre voiture l'arrête (m).
+    couloirAgent: 1.5,
+    // Distance gardée devant l'agent par une voiture qui se gare (m).
+    margeAgent: 0.8,
+    couloirVoiture: 2.1,
+  },
+
   signe: {
     // Distance à laquelle la voiture de tête remarque le geste (m).
     rayon: 30,

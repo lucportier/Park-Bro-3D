@@ -46,9 +46,23 @@ document.body.appendChild(socle);
 let doigt: { id: number; x0: number; y0: number; actif: boolean } | null = null;
 const directionJoystick: Direction = { x: 0, z: 0 };
 
+// Dernier tap (doigt posé puis levé sans glisser) ou clic, en pixels écran.
+let tap: { x: number; y: number } | null = null;
+let souris: { x0: number; y0: number } | null = null;
+
 window.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'mouse') {
+    if (e.button === 0) souris = { x0: e.clientX, y0: e.clientY };
+    return;
+  }
   if (e.pointerType !== 'touch' || doigt) return;
   doigt = { id: e.pointerId, x0: e.clientX, y0: e.clientY, actif: false };
+});
+
+window.addEventListener('pointerup', (e) => {
+  if (e.pointerType !== 'mouse' || !souris) return;
+  if (Math.hypot(e.clientX - souris.x0, e.clientY - souris.y0) < j.seuil) tap = { x: e.clientX, y: e.clientY };
+  souris = null;
 });
 
 window.addEventListener('pointermove', (e) => {
@@ -73,6 +87,8 @@ window.addEventListener('pointermove', (e) => {
 
 function relacher(e: PointerEvent): void {
   if (!doigt || e.pointerId !== doigt.id) return;
+  // Doigt levé sans avoir glissé : c'est un tap, pas un coup de joystick.
+  if (!doigt.actif && e.type === 'pointerup') tap = { x: e.clientX, y: e.clientY };
   doigt = null;
   directionJoystick.x = 0;
   directionJoystick.z = 0;
@@ -106,4 +122,10 @@ export function signeDemande(): boolean {
   const demande = signe;
   signe = false;
   return demande;
+}
+
+export function prendreTap(): { x: number; y: number } | null {
+  const t = tap;
+  tap = null;
+  return t;
 }

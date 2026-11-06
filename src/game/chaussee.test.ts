@@ -50,6 +50,15 @@ describe('chaussée', () => {
     ]);
   });
 
+  it('une voiture qui a un cap ne fait pas demi-tour : elle fait le tour', () => {
+    // Voiture sur l'allée sud, tournée vers l'est ; but juste derrière elle.
+    const tour = chemin(reseau, { x: 10, z: 10 }, { x: 6, z: 10 }, Math.PI / 2);
+    expect(tour[1]).toEqual({ x: 20, z: 10 });
+    expect(longueur(tour)).toBeCloseTo(10 + 10 + 20 + 10 + 6);
+    // Sans cap, elle recule tout droit.
+    expect(longueur(chemin(reseau, { x: 10, z: 10 }, { x: 6, z: 10 }))).toBeCloseTo(4);
+  });
+
   it('donne un point le long d\'une ligne brisée', () => {
     const ligne = [
       { x: 0, z: 0 },

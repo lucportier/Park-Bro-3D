@@ -18,7 +18,7 @@ Le joueur incarne un agent de parking qui se déplace à pied.
 1. Des voitures arrivent par la route d'entrée et font la queue à l'entrée du parking. Il n'y a pas de barrière (elle est levée dès 8 h) : la voiture de tête s'arrête à la ligne d'arrêt et attend l'agent.
 2. Si l'agent est **dans le regard** de la voiture de tête (un cône étroit devant elle, dessiné au sol), elle quitte la file et s'avance doucement vers lui, en restant sur la chaussée (route, allées, voies latérales). S'il sort de son regard, elle s'arrête.
 3. S'il **fait signe** (bouton « Signe », barre d'espace sur ordinateur) et qu'elle est assez proche, elle vient vite jusqu'à lui, même s'il sort de son regard. Cela évite de remonter jusqu'à l'entrée à chaque voiture.
-4. Une fois la voiture près de l'agent, le joueur choisit une place (clic ou tap sur une place libre).
+4. Une fois la voiture près de l'agent (ou la tête de file à la ligne, si l'agent est tout près), les places libres s'éclairent : le joueur en choisit une (clic ou tap). La voiture s'y rend par la chaussée et s'y gare en marche avant.
 5. Sans geste, la patience baisse : jauge vide, la voiture cherche une place seule (voir §3.2).
 6. La voiture va se garer. Ses occupants descendent et marchent jusqu'au parc des expos.
 7. Pendant ce temps, la file s'allonge, la patience baisse, des piétons traversent, des incidents surgissent.
@@ -34,7 +34,7 @@ Le joueur incarne un agent de parking qui se déplace à pied.
 
 ### 3.2 Voitures
 
-- Une voiture ne roule que sur la chaussée et ne fait pas marche arrière ; elle s'arrête toujours avant l'agent.
+- Une voiture ne roule que sur la chaussée, à droite, et ne fait pas marche arrière (elle fait le tour s'il le faut) ; elle s'arrête toujours avant l'agent.
 - Une seule voiture à la fois quitte la file pour venir vers l'agent.
 - Une voiture qui attend a une jauge de patience visible. Seule la tête de file perd sa patience à plein régime ; les suivantes la perdent deux fois moins vite.
 - Jauge vide : la voiture se gare seule sur une place au hasard, avec une pénalité.
