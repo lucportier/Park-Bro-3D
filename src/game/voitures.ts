@@ -74,6 +74,9 @@ interface Roulante {
   phase: Phase;
   // Temps restant avant de repartir après s'être arrêtée pour un piéton (s).
   reprise: number;
+  // Temps passé à l'arrêt à cause des piétons (s) : au-delà de `attenteVoiture`, elle
+  // réclame son tour.
+  arretPietons: number;
   // Présente tant que l'agent la retient.
   retenue: Retenue | null;
   // Le bonus de prudence n'est donné qu'une fois par voiture.
@@ -367,6 +370,7 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
       ordre: departs++,
       phase: { nom: 'approche', appelee },
       reprise: 0,
+      arretPietons: 0,
       retenue: null,
       prudenceDonnee: false,
     };
@@ -430,6 +434,10 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
   function plafondPour(r: Roulante, dt: number): number {
     const pos = { x: r.voiture.objet.position.x, z: r.voiture.objet.position.z };
     const plafond = plafondPietons(r, pos, r.cap, r.voiture.longueur / 2, mobilesPietons, config.pietons, dt);
+    // Le compte monte tant que des piétons la retiennent, retombe quand c'est autre chose
+    // (l'agent, une voiture), et repart de zéro dès qu'elle roule.
+    if (r.voiture.vitesse > 0.5) r.arretPietons = 0;
+    else r.arretPietons = r.reprise > 0 ? r.arretPietons + dt : Math.max(0, r.arretPietons - dt);
     return r.retenue !== null ? 0 : plafond;
   }
 
@@ -560,6 +568,7 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
         demiLongueur: r.voiture.longueur / 2,
         demiLargeur: r.voiture.largeur / 2,
         roule: r.voiture.vitesse > 0.5,
+        presse: r.retenue === null && r.arretPietons > config.pietons.attenteVoiture,
       }));
     },
 

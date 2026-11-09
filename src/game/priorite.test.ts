@@ -48,6 +48,7 @@ function simuler(pietons: Marcheur[], secondes: number, vitesseMax = 9): { x: nu
       demiLongueur: DEMI_LONGUEUR,
       demiLargeur: DEMI_LARGEUR,
       roule: voiture.vitesse > 0.5,
+      presse: false,
     };
     for (const p of pietons) {
       const libre = peutAvancer(p, { x: p.x + p.marcheX, z: p.z + p.marcheZ }, [vue], reglagesPieton);
@@ -73,7 +74,7 @@ function simuler(pietons: Marcheur[], secondes: number, vitesseMax = 9): { x: nu
       const auPas = voiture.vitesse <= reglages.vitesseVigilance + 1e-6;
       const frole =
         (lat < 0 && lon < ECART_DEVANT) || (lon < 0 && (lat < ECART_COTE || (lat < ECART_COTE_VITE && !auPas)));
-      expect(frole, `piéton frôlé en (${p.x.toFixed(2)}, ${p.z.toFixed(2)}) à t = ${t.toFixed(2)} s`).toBe(false);
+      expect(frole, `piéton frôlé en (${p.x.toFixed(2)}, ${p.z.toFixed(2)}) voiture ${voiture.x.toFixed(2)} v ${voiture.vitesse.toFixed(2)} à t = ${t.toFixed(2)} s`).toBe(false);
     }
   }
   return voiture;
@@ -145,7 +146,7 @@ describe('priorité piétonne', () => {
 
   it('pas d\'attente sans fin : patient, il passe devant une voiture arrêtée', () => {
     // Voiture arrêtée (pour d'autres piétons), pare-chocs à 1,2 m du chemin du piéton.
-    const arretee: VoitureVue = { x: -3.5, z: 0, cap: Math.PI / 2, demiLongueur: 2.3, demiLargeur: 1, roule: false };
+    const arretee: VoitureVue = { x: -3.5, z: 0, cap: Math.PI / 2, demiLongueur: 2.3, demiLargeur: 1, roule: false, presse: false };
     const ici = { x: 0, z: -2.2 };
     const but = { x: 0, z: 3 };
     expect(peutAvancer(ici, but, [arretee], reglagesPieton)).toBe(false);
@@ -155,19 +156,36 @@ describe('priorité piétonne', () => {
   });
 
   it('il contourne une voiture arrêtée en travers de son chemin', () => {
-    const travers: VoitureVue = { x: 0, z: 0, cap: Math.PI / 2, demiLongueur: 2.3, demiLargeur: 1, roule: false };
+    const travers: VoitureVue = { x: 0, z: 0, cap: Math.PI / 2, demiLongueur: 2.3, demiLargeur: 1, roule: false, presse: false };
     const ici = { x: 0.5, z: -2 };
     const but = { x: 0.5, z: 6 };
-    expect(peutAvancer(ici, but, [travers], reglagesPieton, true)).toBe(false);
-    const coin = contournement(ici, but, travers, reglagesPieton.margeCarrosserie);
-    // Le coin est hors de la voiture, et il peut y aller, puis repartir vers son but.
-    expect(Math.abs(coin.x)).toBeGreaterThan(2.3);
-    expect(peutAvancer(ici, coin, [travers], reglagesPieton, true)).toBe(true);
-    expect(peutAvancer(coin, but, [travers], reglagesPieton, true)).toBe(true);
+    // Même patient, il ne traverse pas la voiture : il la frôle, puis s'arrête.
+    const contre = { x: 0.5, z: -1.4 };
+    expect(peutAvancer(contre, but, [travers], reglagesPieton, true)).toBe(false);
+    const coins = contournement(ici, but, travers, reglagesPieton.margeCarrosserie + 0.1, reglagesPieton.margeAvant + 0.1);
+    // Les coins sont hors de la voiture, et il peut aller de l'un à l'autre, puis vers son but.
+    expect(coins.length).toBeGreaterThan(0);
+    const etapes = [ici, ...coins, but];
+    for (let i = 0; i + 1 < etapes.length; i++) {
+      expect(peutAvancer(etapes[i]!, etapes[i + 1]!, [travers], reglagesPieton)).toBe(true);
+    }
+  });
+
+  it('à côté du pare-chocs, il contourne par le coin le plus proche, pas à travers la voiture', () => {
+    // Cas vu en jeu : voiture arrêtée le nez sur le passage, piéton à côté de son avant.
+    const v: VoitureVue = { x: 1.9, z: -10.5, cap: (3 * Math.PI) / 2, demiLongueur: 2.2, demiLargeur: 1.1, roule: false, presse: false };
+    const ici = { x: -0.4, z: -8 };
+    const but = { x: -0.4, z: -20 };
+    const coins = contournement(ici, but, v, reglagesPieton.margeCarrosserie + 0.1, reglagesPieton.margeAvant + 0.1);
+    expect(coins.length).toBe(2);
+    const etapes = [ici, ...coins, but];
+    for (let i = 0; i + 1 < etapes.length; i++) {
+      expect(peutAvancer(etapes[i]!, etapes[i + 1]!, [v], reglagesPieton)).toBe(true);
+    }
   });
 
   it('un piéton attend au bord qu\'une voiture qui roule soit passée', () => {
-    const voiture = (x: number, roule: boolean): VoitureVue => ({ x, z: 0, cap: Math.PI / 2, demiLongueur: 2.3, demiLargeur: 1, roule });
+    const voiture = (x: number, roule: boolean): VoitureVue => ({ x, z: 0, cap: Math.PI / 2, demiLongueur: 2.3, demiLargeur: 1, roule, presse: false });
     const ici = { x: 0, z: -2.2 };
     const but = { x: 0, z: 3 };
     expect(peutAvancer(ici, but, [voiture(-2, true)], reglagesPieton)).toBe(false);

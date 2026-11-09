@@ -3,7 +3,7 @@ import { config } from '../config';
 import { modeleAnime } from '../scene/modeles';
 import type { Point } from './chaussee';
 import { plan, type Place } from './parking';
-import { bloqueur, contournement, type PietonMobile, type VoitureVue } from './priorite';
+import { bloqueur, contournement, CONTACT, type PietonMobile, type VoitureVue } from './priorite';
 
 const pc = config.pietons;
 const p = config.parking;
@@ -17,8 +17,9 @@ type Phase =
   // Encore dans la voiture, invisible : il descend quand `attente` (s) est écoulée.
   | { nom: 'dansVoiture'; attente: number }
   // Dehors : il grandit (`apparition` de 0 à 1) en marchant vers trajet[etape].
-  // `bloque` : temps passé à attendre une voiture (s).
-  | { nom: 'dehors'; etape: number; apparition: number; bloque: number }
+  // `bloque` : temps passé à attendre une voiture (s), remis à zéro à chaque détour ;
+  // `immobile` : temps depuis son dernier pas (s).
+  | { nom: 'dehors'; etape: number; apparition: number; bloque: number; immobile: number }
   // Arrivé à la porte : il rapetisse et entre (temps écoulé depuis la porte, s).
   | { nom: 'entre'; temps: number };
 
@@ -28,6 +29,8 @@ interface Pieton extends PietonMobile {
   marche: THREE.AnimationAction;
   repos: THREE.AnimationAction;
   trajet: Point[];
+  // Points ajoutés au trajet pour contourner une voiture.
+  detours: Set<Point>;
   vitesse: number;
   phase: Phase;
   // Animation jouée (marche ou repos), indépendante de la phase : il s'arrête devant une voiture.
@@ -78,6 +81,7 @@ export function creerPietons(scene: THREE.Scene) {
       marche,
       repos,
       trajet,
+      detours: new Set(),
       vitesse,
       phase: { nom: 'dansVoiture', attente: rang * pc.delaiDescente + pc.delaiDescente },
       enMarche: false,
@@ -131,7 +135,7 @@ export function creerPietons(scene: THREE.Scene) {
         if (phase.nom === 'dansVoiture') {
           phase.attente -= dt;
           if (phase.attente <= 0) {
-            pi.phase = { nom: 'dehors', etape: 1, apparition: 0, bloque: 0 };
+            pi.phase = { nom: 'dehors', etape: 1, apparition: 0, bloque: 0, immobile: 0 };
             pi.objet.visible = true;
           }
           continue;
@@ -161,18 +165,32 @@ export function creerPietons(scene: THREE.Scene) {
         }
         // Patient au bout d'un moment : il passe devant une voiture arrêtée (souvent pour
         // d'autres piétons), et la contourne si elle lui barre le chemin.
-        const gene = bloqueur(ici, but, voitures, pc, phase.bloque > pc.patience);
+        const coince = phase.immobile > pc.patienceCoince;
+        const gene = bloqueur(ici, but, voitures, pc, phase.bloque > pc.patience, coince);
         if (gene) {
           phase.bloque += dt;
+          phase.immobile += dt;
           if (!gene.roule && phase.bloque > pc.patienceContournement) {
-            pi.trajet.splice(phase.etape, 0, contournement(ici, but, gene, pc.margeCarrosserie));
+            // Il oublie ses anciens détours (faits pour des voitures parfois parties depuis),
+            // puis passe par les coins de celle-ci, un peu au-delà de la zone qu'il respecte.
+            while (pi.detours.has(pi.trajet[phase.etape]!)) pi.trajet.splice(phase.etape, 1);
+            const marge = coince ? CONTACT : pc.margeCarrosserie;
+            const coins = contournement(ici, pi.trajet[phase.etape]!, gene, marge + 0.1, (coince ? CONTACT : pc.margeAvant) + 0.1);
+            for (const c of coins) pi.detours.add(c);
+            pi.trajet.splice(phase.etape, 0, ...coins);
             phase.bloque = 0;
           }
-          pi.vx = pi.vz = 0;
+          // Il cède le passage aux voitures qui roulent, mais pas indéfiniment : au bout d'un
+          // moment, il montre qu'il veut traverser (sa vitesse voulue compte pour les
+          // voitures) et la suivante s'arrête pour lui. Il ne s'avance qu'une fois arrêtée.
+          const insiste = gene.roule && phase.bloque > pc.patience;
+          pi.vx = insiste ? (dx / d) * pi.vitesse : 0;
+          pi.vz = insiste ? (dz / d) * pi.vitesse : 0;
           changer(pi, false);
           continue;
         }
         phase.bloque = 0;
+        phase.immobile = 0;
         changer(pi, true);
         const pas = Math.min(d, pi.vitesse * dt);
         pi.vx = (dx / d) * pi.vitesse;

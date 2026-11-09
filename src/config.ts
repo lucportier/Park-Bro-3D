@@ -120,8 +120,8 @@ export const config = {
     vitesseMax: 2.1,
     // Vitesse pour laquelle l'animation de marche ne glisse pas (m/s).
     vitesseAnimation: 2.2,
-    // Distance entre l'arrière des voitures garées et le chemin des piétons dans l'allée (m).
-    decalageAllee: 0.2,
+    // Distance entre le bord des places et le chemin des piétons dans l'allée (m).
+    decalageAllee: 0,
     // Écart entre deux occupants d'une même voiture qui marchent côte à côte (m).
     ecartGroupe: 0.7,
     largeurPorte: 6,
@@ -132,10 +132,17 @@ export const config = {
     margeCarrosserie: 0.9,
     margeAvant: 1.6,
     devantRoulante: 4,
+    // Devant une voiture qui réclame son tour (voir `attenteVoiture`), il s'écarte plus loin (m).
+    devantPresse: 7,
+    // Il marche le long de la voie d'une voiture qui roule à au moins ça de son flanc (m).
+    margeLonger: 0.5,
     // Après tant d'attente devant une voiture arrêtée, il passe devant elle ; après tant,
     // si elle lui barre le chemin, il la contourne (s).
     patience: 1.5,
     patienceContournement: 3,
+    // Immobile depuis tant de temps, il se faufile entre les voitures arrêtées, à 0,3 m
+    // de leur carrosserie (s).
+    patienceCoince: 6,
     // Les voitures : couloir où un piéton les arrête, distance gardée, et anticipation (s).
     couloir: 1.5,
     marge: 2,
@@ -147,6 +154,9 @@ export const config = {
     // Après s'être arrêtée pour un piéton, elle attend ce temps avant de repartir (s),
     // sauf si l'agent lui fait signe.
     delaiRedemarrage: 1.5,
+    // Arrêtée plus longtemps que ça pour des piétons, elle réclame son tour : les piétons
+    // qui ne sont pas encore devant elle la laissent passer (s).
+    attenteVoiture: 4,
   },
 
   signe: {

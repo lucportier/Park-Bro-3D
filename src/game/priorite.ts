@@ -111,6 +111,9 @@ export interface VoitureVue {
   demiLongueur: number;
   demiLargeur: number;
   roule: boolean;
+  // Arrêtée depuis longtemps pour des piétons, elle réclame son tour : aucun nouveau
+  // piéton ne s'engage devant elle, ceux qui y sont déjà finissent de passer.
+  presse: boolean;
 }
 
 // Position du point p dans le repère de la voiture : en avant du centre, et sur le côté.
@@ -127,7 +130,7 @@ function tropPres(q: { long: number; lat: number }, v: VoitureVue, cote: number,
 }
 
 // Distance en dessous de laquelle un piéton touche presque une carrosserie (m).
-const CONTACT = 0.3;
+export const CONTACT = 0.3;
 
 export interface ReglagesPieton {
   // Distance gardée sur les côtés d'une voiture (m).
@@ -135,23 +138,31 @@ export interface ReglagesPieton {
   // Devant le pare-chocs : une voiture à l'arrêt, une voiture qui roule (m).
   margeAvant: number;
   devantRoulante: number;
+  // Devant une voiture qui réclame son tour (m).
+  devantPresse: number;
+  // Distance gardée au flanc d'une voiture qui roule quand il marche le long de sa voie (m).
+  margeLonger: number;
 }
 
 // Le piéton peut-il faire son prochain pas ? Il n'entre jamais dans la zone d'une voiture :
 // ses flancs, et devant elle (bien plus loin si elle roule : il la laisse passer). S'il y
 // est déjà, il peut s'en écarter, et passer devant une voiture arrêtée, mais pas se
-// rapprocher d'une voiture qui roule. Quand il attend, il ne compte plus que là où il est
-// (vitesse nulle) : la voiture qui s'était arrêtée pour lui peut repartir.
+// rapprocher d'une voiture qui roule. Quand il attend, il ne compte d'abord plus que là où
+// il est (vitesse nulle) : la voiture qui s'était arrêtée pour lui peut repartir. S'il
+// attend trop longtemps des voitures qui roulent, il insiste (voir pietons.ts).
 // `patient` : il attend depuis un moment devant une voiture arrêtée (souvent arrêtée pour
-// d'autres piétons) ; il passe alors devant elle, sans jamais la toucher.
+// d'autres piétons) ; il passe alors devant elle ou la longe, sans jamais la toucher.
+// `coince` : il n'a pas bougé depuis longtemps ; il se faufile alors entre les voitures
+// arrêtées, même celles qui réclament leur tour.
 export function peutAvancer(
   depuis: Point,
   vers: Point,
   voitures: VoitureVue[],
   r: ReglagesPieton,
   patient = false,
+  coince = false,
 ): boolean {
-  return bloqueur(depuis, vers, voitures, r, patient) === null;
+  return bloqueur(depuis, vers, voitures, r, patient, coince) === null;
 }
 
 // La voiture qui empêche le prochain pas du piéton, ou null.
@@ -161,16 +172,27 @@ export function bloqueur(
   voitures: VoitureVue[],
   r: ReglagesPieton,
   patient = false,
+  coince = false,
 ): VoitureVue | null {
   const l = Math.hypot(vers.x - depuis.x, vers.z - depuis.z);
   if (l === 0) return null;
-  const pas = { x: depuis.x + ((vers.x - depuis.x) / l) * 0.5, z: depuis.z + ((vers.z - depuis.z) / l) * 0.5 };
+  // Il regarde un demi-mètre devant lui, sans dépasser le point qu'il vise.
+  const k = Math.min(0.5, l) / l;
+  const pas = { x: depuis.x + (vers.x - depuis.x) * k, z: depuis.z + (vers.z - depuis.z) * k };
   const libre = (v: VoitureVue): boolean => {
-    const avant = v.roule ? r.devantRoulante : patient ? CONTACT : r.margeAvant;
+    // Il cède le passage à une voiture qui roule ou qui réclame son tour. Patient, il
+    // frôle une autre voiture arrêtée (à `CONTACT`), devant comme sur les flancs.
+    const cede = v.roule || (v.presse && !coince);
+    const serre = !cede && (patient || coince);
+    const avant = v.roule ? r.devantRoulante : cede ? r.devantPresse : serre ? CONTACT : r.margeAvant;
+    const cote = serre ? CONTACT : r.margeCarrosserie;
     const apres = repere(pas, v);
-    if (!tropPres(apres, v, r.margeCarrosserie, avant)) return true;
+    if (!tropPres(apres, v, cote, avant)) return true;
     const ici = repere(depuis, v);
-    if (!tropPres(ici, v, r.margeCarrosserie, avant)) return false;
+    // Il peut marcher le long de la voie d'une voiture qui roule, ou s'en écarter, assez
+    // loin de son flanc : il ne se met jamais sur son chemin.
+    if (cede && apres.lat >= ici.lat - 1e-9 && apres.lat >= v.demiLargeur + r.margeLonger) return true;
+    if (!tropPres(ici, v, cote, avant)) return false;
     // Déjà trop près : il ne se colle jamais à la carrosserie, et ne se rapproche pas
     // d'une voiture qui roule.
     if (tropPres(apres, v, CONTACT, CONTACT) && !tropPres(ici, v, CONTACT, CONTACT)) return false;
@@ -179,21 +201,90 @@ export function bloqueur(
   return voitures.find((v) => !libre(v)) ?? null;
 }
 
-// Point où passer pour contourner une voiture arrêtée en travers du chemin : le coin de sa
-// carrosserie (élargie de `marge`) qui allonge le moins le trajet, du côté du piéton.
-export function contournement(depuis: Point, vers: Point, v: VoitureVue, marge: number): Point {
+// Le segment a → b (dans le repère de la voiture) traverse-t-il le rectangle
+// [l1, l2] × [-t, t] (en avant, sur le côté) ?
+function traverse(a: { long: number; lat: number }, b: { long: number; lat: number }, l1: number, l2: number, t: number): boolean {
+  let debut = 0;
+  let fin = 1;
+  for (const [p, q, min, max] of [
+    [a.long, b.long - a.long, l1, l2],
+    [a.lat, b.lat - a.lat, -t, t],
+  ] as const) {
+    if (Math.abs(q) < 1e-12) {
+      if (p <= min || p >= max) return false;
+      continue;
+    }
+    const t1 = (min - p) / q;
+    const t2 = (max - p) / q;
+    debut = Math.max(debut, Math.min(t1, t2));
+    fin = Math.min(fin, Math.max(t1, t2));
+    if (debut >= fin) return false;
+  }
+  return true;
+}
+
+// Points où passer pour contourner une voiture arrêtée en travers du chemin : un ou
+// plusieurs coins de sa carrosserie élargie (de `cote` sur les flancs et à l'arrière, de
+// `avant` devant), chacun atteignable en ligne droite depuis le précédent, par le côté
+// qui allonge le moins le trajet.
+export function contournement(depuis: Point, vers: Point, v: VoitureVue, cote: number, avant: number): Point[] {
   const ax = { x: Math.sin(v.cap), z: Math.cos(v.cap) };
   const lat = { x: Math.cos(v.cap), z: -Math.sin(v.cap) };
-  const coins: Point[] = [];
-  for (const sl of [-1, 1]) {
-    for (const st of [-1, 1]) {
-      const l = sl * (v.demiLongueur + marge);
-      const t = st * (v.demiLargeur + marge);
-      coins.push({ x: v.x + ax.x * l + lat.x * t, z: v.z + ax.z * l + lat.z * t });
+  const devant = v.demiLongueur + avant;
+  const derriere = -(v.demiLongueur + cote);
+  const flanc = v.demiLargeur + cote;
+  // Coins dans l'ordre du tour de la voiture (repère local : en avant, sur le côté).
+  const locaux = [
+    { long: devant, lat: flanc },
+    { long: devant, lat: -flanc },
+    { long: derriere, lat: -flanc },
+    { long: derriere, lat: flanc },
+  ];
+  const monde = (c: { long: number; lat: number }): Point => ({
+    x: v.x + ax.x * c.long + lat.x * c.lat,
+    z: v.z + ax.z * c.long + lat.z * c.lat,
+  });
+  const local = (p: Point) => {
+    const dx = p.x - v.x;
+    const dz = p.z - v.z;
+    return { long: dx * ax.x + dz * ax.z, lat: dx * lat.x + dz * lat.z };
+  };
+  // Vue dégagée : le segment ne coupe pas la carrosserie élargie (un peu rétrécie, pour
+  // longer ses bords). Depuis l'intérieur de cette zone, il garde au moins `CONTACT`.
+  const e = 0.05;
+  const vue = (a: Point, b: { long: number; lat: number }): boolean => {
+    const la = local(a);
+    const dedans = la.long > derriere + e && la.long < devant - e && Math.abs(la.lat) < flanc - e;
+    return dedans
+      ? !traverse(la, b, -v.demiLongueur - CONTACT - e, v.demiLongueur + CONTACT + e, v.demiLargeur + CONTACT + e)
+      : !traverse(la, b, derriere + e, devant - e, flanc - e);
+  };
+  const d = (p: Point, q: Point) => Math.hypot(p.x - q.x, p.z - q.z);
+  const coins = locaux.map(monde);
+  const lv = local(vers);
+  let meilleur: Point[] = [];
+  let cout = Infinity;
+  for (let i = 0; i < 4; i++) {
+    if (!vue(depuis, locaux[i]!)) continue;
+    // Le long de la carrosserie dans les deux sens, jusqu'à un coin d'où le but se voit.
+    for (const sens of [1, 3]) {
+      const chemin = [coins[i]!];
+      let c = d(depuis, coins[i]!);
+      let j = i;
+      for (let n = 0; n < 4; n++) {
+        if (!traverse(locaux[j]!, lv, derriere + e, devant - e, flanc - e)) {
+          if (c + d(coins[j]!, vers) < cout) {
+            cout = c + d(coins[j]!, vers);
+            meilleur = [...chemin];
+          }
+          break;
+        }
+        const k = (j + sens) % 4;
+        c += d(coins[j]!, coins[k]!);
+        chemin.push(coins[k]!);
+        j = k;
+      }
     }
   }
-  const d = (p: Point, q: Point) => Math.hypot(p.x - q.x, p.z - q.z);
-  // Les deux coins les plus proches du piéton sont de son côté : il y va sans traverser la voiture.
-  const proches = coins.sort((p, q) => d(depuis, p) - d(depuis, q)).slice(0, 2);
-  return proches.reduce((m, c) => (d(depuis, c) + d(c, vers) < d(depuis, m) + d(m, vers) ? c : m));
+  return meilleur;
 }
