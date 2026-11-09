@@ -1,0 +1,136 @@
+.joystick {
+  position: fixed;
+  width: 120px;
+  height: 120px;
+  margin: -60px 0 0 -60px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  border: 3px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.joystick.visible {
+  opacity: 1;
+}
+
+.joystick-bouton {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 54px;
+  height: 54px;
+  margin: -27px 0 0 -27px;
+  border-radius: 50%;
+  background: #ffd23f;
+  border: 3px solid #ffffff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+}
+
+.bouton-signe {
+  position: fixed;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  background: #ffd23f;
+  color: #3a3220;
+  font: 700 15px/1.1 system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s;
+}
+
+.bouton-signe span {
+  font-size: 26px;
+}
+
+.bouton-signe:active {
+  transform: scale(0.92);
+}
+
+.hud-score {
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 20px 9px;
+  border-radius: 999px;
+  background: rgba(34, 38, 44, 0.78);
+  color: #ffffff;
+  font-family: system-ui, sans-serif;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+
+.hud-titre {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.hud-valeur {
+  min-width: 2ch;
+  font-size: 26px;
+  font-weight: 800;
+  color: #ffd23f;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-score.rebond {
+  animation: rebond 0.3s ease-out;
+}
+
+@keyframes rebond {
+  40% {
+    transform: translateX(-50%) scale(1.12);
+  }
+}
+
+.points-volants {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  font: 800 26px system-ui, sans-serif;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35), 0 0 10px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  animation: envol 1.3s ease-out forwards;
+}
+
+.points-volants.positif {
+  color: #ffd23f;
+}
+
+.points-volants.negatif {
+  color: #ff6b57;
+}
+
+@keyframes envol {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -30%) scale(0.7);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -60%) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -260%) scale(1);
+  }
+}
