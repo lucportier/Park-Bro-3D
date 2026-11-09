@@ -19,8 +19,8 @@ type Allure = 'idle' | 'walk' | 'sprint';
 export interface Agent {
   objet: THREE.Object3D;
   mettreAJour(direction: Direction, dt: number): void;
-  // Fait signe : main levée et onde qui montre jusqu'où porte le geste.
-  faireSigne(): void;
+  // Fait un geste : main levée et onde qui montre jusqu'où il porte.
+  faireSigne(geste: 'appel' | 'stop'): void;
 }
 
 // Gilet jaune fluo à deux bandes réfléchissantes, accroché à l'os du torse pour
@@ -78,22 +78,30 @@ export async function creerAgent(scene: THREE.Scene): Promise<Agent> {
 
   let angleVise = objet.rotation.y;
 
-  // Geste : une main levée au-dessus de la tête, et une onde jaune qui s'étale
-  // jusqu'à la portée du signe. (Le bras du modèle est trop court pour se voir d'en haut.)
-  const toile = document.createElement('canvas');
-  toile.width = toile.height = 128;
-  const ctx = toile.getContext('2d')!;
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.arc(64, 64, 58, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.font = '76px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('✋', 64, 70);
-  const texteMain = new THREE.CanvasTexture(toile);
-  texteMain.colorSpace = THREE.SRGBColorSpace;
-  const main = new THREE.Sprite(new THREE.SpriteMaterial({ map: texteMain, transparent: true, depthTest: false }));
+  // Gestes : une main au-dessus de la tête, et une onde qui s'étale jusqu'à leur portée.
+  // (Le bras du modèle est trop court pour se voir d'en haut.) « Appeler » : main qui fait
+  // coucou, onde jaune ; « Stop » : main rouge, onde rouge.
+  function texteGeste(emoji: string, fond: string): THREE.CanvasTexture {
+    const toile = document.createElement('canvas');
+    toile.width = toile.height = 128;
+    const ctx = toile.getContext('2d')!;
+    ctx.fillStyle = fond;
+    ctx.beginPath();
+    ctx.arc(64, 64, 58, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.font = '76px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, 64, 70);
+    const texture = new THREE.CanvasTexture(toile);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }
+  const gestes = {
+    appel: { texture: texteGeste('👋', '#ffffff'), couleur: config.couleurs.agent, rayon: config.signe.rayon },
+    stop: { texture: texteGeste('✋', config.couleurs.stop), couleur: config.couleurs.stop, rayon: config.signe.rayonArret },
+  };
+  const main = new THREE.Sprite(new THREE.SpriteMaterial({ map: gestes.appel.texture, transparent: true, depthTest: false }));
   main.scale.setScalar(1.6);
   main.visible = false;
   scene.add(main);
@@ -105,6 +113,7 @@ export async function creerAgent(scene: THREE.Scene): Promise<Agent> {
   onde.position.y = 0.2;
   onde.visible = false;
   scene.add(onde);
+  let geste: { texture: THREE.CanvasTexture; couleur: THREE.ColorRepresentation; rayon: number } = gestes.appel;
   let tempsSigne = 0;
 
   return {
@@ -135,7 +144,7 @@ export async function creerAgent(scene: THREE.Scene): Promise<Agent> {
         const avancement = 1 - tempsSigne / config.signe.duree;
         main.visible = tempsSigne > 0;
         main.position.set(objet.position.x, 3.4 + 0.3 * Math.sin(avancement * Math.PI), objet.position.z);
-        const rayon = 1 + (config.signe.rayon - 1) * Math.min(1, avancement * 1.6);
+        const rayon = 1 + (geste.rayon - 1) * Math.min(1, avancement * 1.6);
         onde.scale.setScalar(rayon);
         onde.position.x = objet.position.x;
         onde.position.z = objet.position.z;
@@ -143,7 +152,10 @@ export async function creerAgent(scene: THREE.Scene): Promise<Agent> {
         onde.visible = tempsSigne > 0;
       }
     },
-    faireSigne() {
+    faireSigne(nom) {
+      geste = gestes[nom];
+      main.material.map = geste.texture;
+      (onde.material as THREE.MeshBasicMaterial).color.set(geste.couleur);
       tempsSigne = config.signe.duree;
     },
   };

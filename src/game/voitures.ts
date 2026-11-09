@@ -40,22 +40,22 @@ interface Voiture extends VoitureEnFile {
 
 // Vie d'une voiture :
 //
-//   file ──(voit l'agent / signe)──► approche ──(place choisie / patience à bout)──► versPlace
+//   file ──(voit l'agent / appel)──► approche ──(place choisie / patience à bout)──► versPlace
 //     └──────────(place choisie près de l'agent / patience à bout)──────────────────────┘
 //   versPlace ──(devant la place)──► manoeuvre ──(au centre)──► garée (occupants descendent)
 //
 // La file est gérée par `avancerFile` ; ensuite la voiture devient une Roulante, et sa
 // phase dit ce qu'elle fait. Chaque phase porte seulement les données dont elle a besoin.
-// Quelle que soit sa phase, l'agent peut la retenir par un signe (voir `retenue`).
+// Quelle que soit sa phase, l'agent peut la retenir d'un « Stop » (voir `retenue`).
 type Phase =
-  // Vient vers l'agent. `appelee` : il lui a fait signe, elle vient vite même hors du regard.
+  // Vient vers l'agent. `appelee` : il l'a appelée, elle vient vite même hors du regard.
   | { nom: 'approche'; appelee: boolean }
   // Roule sur la chaussée jusqu'à l'allée devant sa place.
   | { nom: 'versPlace'; place: Place }
   // Entre dans la place : courbe échantillonnée et distance déjà parcourue.
   | { nom: 'manoeuvre'; place: Place; courbe: Point[]; s: number };
 
-// Arrêt demandé par le signe de l'agent, pour laisser passer des piétons.
+// Arrêt demandé par le « Stop » de l'agent, pour laisser passer des piétons.
 interface Retenue {
   // Temps écoulé sans piéton devant elle, et depuis l'arrêt (s).
   calme: number;
@@ -228,7 +228,7 @@ const texteMain = (() => {
   const toile = document.createElement('canvas');
   toile.width = toile.height = 128;
   const ctx = toile.getContext('2d')!;
-  ctx.fillStyle = '#e5533d';
+  ctx.fillStyle = config.couleurs.stop;
   ctx.beginPath();
   ctx.arc(64, 64, 58, 0, Math.PI * 2);
   ctx.fill();
@@ -446,24 +446,30 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
     return positionsPietons.some((q) => Math.hypot(q.x - p.x, q.z - p.z) < config.signe.zonePietons);
   }
 
-  // Le signe de l'agent : arrête par prudence une voiture qui roule près de piétons,
-  // ou fait repartir une voiture qui attendait après le passage d'un piéton.
-  function signePourRoulantes(): Set<Roulante> {
-    const retenues = new Set<Roulante>();
-    for (const r of approche ? [approche, ...garages] : garages) {
-      if (r.voiture.objet.position.distanceTo(agentPos) > config.signe.rayonArret) continue;
-      if (r.retenue === null && pietonsAutour(r) && (r.voiture.vitesse > 0.5 || r.reprise > 0)) {
-        const main = new THREE.Sprite(new THREE.SpriteMaterial({ map: texteMain, depthTest: false }));
-        main.scale.setScalar(1.4);
-        main.renderOrder = 12;
-        scene.add(main);
-        r.retenue = { calme: 0, duree: 0, main };
-        retenues.add(r);
-      } else if (r.retenue === null && r.reprise > 0) {
-        r.reprise = 0;
-      }
+  // Voitures qui roulent à portée des gestes de l'agent.
+  function aPortee(): Roulante[] {
+    return (approche ? [approche, ...garages] : garages).filter(
+      (r) => r.voiture.objet.position.distanceTo(agentPos) <= config.signe.rayonArret,
+    );
+  }
+
+  // « Stop » : arrête par prudence une voiture qui roule près de piétons (ou qui attend
+  // encore après leur passage).
+  function arreterParPrudence(): void {
+    for (const r of aPortee()) {
+      if (r.retenue !== null || !pietonsAutour(r) || (r.voiture.vitesse <= 0.5 && r.reprise <= 0)) continue;
+      const main = new THREE.Sprite(new THREE.SpriteMaterial({ map: texteMain, depthTest: false }));
+      main.scale.setScalar(1.4);
+      main.renderOrder = 12;
+      scene.add(main);
+      r.retenue = { calme: 0, duree: 0, main };
     }
-    return retenues;
+  }
+
+  // « Appeler » : une voiture qui attendait après le passage d'un piéton repart tout de suite
+  // (jamais avec un piéton devant elle).
+  function relancer(): void {
+    for (const r of aPortee()) if (r.retenue === null) r.reprise = 0;
   }
 
   // Une voiture retenue repart seule quand plus aucun piéton n'est devant elle (ni près de
@@ -572,12 +578,13 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
       }));
     },
 
-    mettreAJour(dt: number, agent: THREE.Vector3, signe: boolean, mobiles: PietonMobile[]): void {
+    mettreAJour(dt: number, agent: THREE.Vector3, gestes: { appel: boolean; stop: boolean }, mobiles: PietonMobile[]): void {
       agentPos = agent;
       pietons = obstaclesPietons(mobiles, config.pietons);
       positionsPietons = mobiles.map((m) => ({ x: m.x, z: m.z }));
       mobilesPietons = mobiles;
-      const retenues = signe ? signePourRoulantes() : new Set<Roulante>();
+      if (gestes.stop) arreterParPrudence();
+      if (gestes.appel) relancer();
       temps += dt;
       prochaineArrivee -= dt;
       if (
@@ -591,10 +598,10 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
         faireArriver().catch((erreur) => console.error('Voiture non chargée', erreur));
       }
 
-      // La tête de file arrivée à la ligne part vers l'agent si elle le voit ou s'il lui fait signe.
+      // La tête de file arrivée à la ligne part vers l'agent si elle le voit ou s'il l'appelle.
       const tete = !approche ? teteALaLigne() : null;
       if (tete) {
-        const appelee = signe && tete.objet.position.distanceTo(agent) <= config.signe.rayon;
+        const appelee = gestes.appel && tete.objet.position.distanceTo(agent) <= config.signe.rayon;
         const proche = tete.objet.position.distanceTo(agent) <= ga.distanceChoix;
         if (appelee || (!proche && voit(avantDe(tete.objet, Math.PI / 2, tete.longueur), Math.PI / 2, agent))) {
           approche = sortirDeLaFile(tete, appelee);
@@ -618,7 +625,7 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
 
       if (approche?.phase.nom === 'approche') {
         const phase = approche.phase;
-        if (signe && !retenues.has(approche) && approche.voiture.objet.position.distanceTo(agent) <= config.signe.rayon) {
+        if (gestes.appel && approche.voiture.objet.position.distanceTo(agent) <= config.signe.rayon) {
           phase.appelee = true;
         }
         gererRetenue(approche, dt);

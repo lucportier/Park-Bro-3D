@@ -17,7 +17,7 @@ Le joueur incarne un agent de parking qui se déplace à pied.
 
 1. Des voitures arrivent par la route d'entrée et font la queue à l'entrée du parking. Il n'y a pas de barrière (elle est levée dès 8 h) : la voiture de tête s'arrête à la ligne d'arrêt et attend l'agent.
 2. Si l'agent est **dans le regard** de la voiture de tête (un cône étroit devant elle, dessiné au sol), elle quitte la file et s'avance doucement vers lui, en restant sur la chaussée (route, allées, voies latérales). S'il sort de son regard, elle s'arrête.
-3. S'il **fait signe** (bouton « Signe », barre d'espace sur ordinateur) et qu'elle est assez proche, elle vient vite jusqu'à lui, même s'il sort de son regard. Cela évite de remonter jusqu'à l'entrée à chaque voiture.
+3. S'il l'**appelle** (bouton « Appeler », barre d'espace sur ordinateur) et qu'elle est assez proche, elle vient vite jusqu'à lui, même s'il sort de son regard. Cela évite de remonter jusqu'à l'entrée à chaque voiture.
 4. Une fois la voiture près de l'agent (ou la tête de file à la ligne, si l'agent est tout près), les places libres s'éclairent : le joueur en choisit une (clic ou tap). La voiture s'y rend par la chaussée et s'y gare en marche avant.
 5. Sans geste, la patience baisse : jauge vide, la voiture cherche une place seule (voir §3.2).
 6. La voiture va se garer. Ses occupants descendent et marchent jusqu'au parc des expos.
@@ -28,8 +28,8 @@ Le joueur incarne un agent de parking qui se déplace à pied.
 
 ### 3.1 Agent et contrôles
 
-- Ordinateur : clavier (ZQSD, WASD ou flèches) pour déplacer l'agent, clic pour choisir une place, barre d'espace pour faire signe.
-- Téléphone : joystick virtuel pour déplacer l'agent, tap pour choisir une place, bouton « Signe » à l'écran.
+- Ordinateur : clavier (ZQSD, WASD ou flèches) pour déplacer l'agent, clic pour choisir une place, barre d'espace pour « Appeler », touche E pour « Stop ».
+- Téléphone : joystick virtuel pour déplacer l'agent, tap pour choisir une place, boutons « Appeler » et « Stop » à l'écran.
 - La caméra suit l'agent.
 
 ### 3.2 Voitures
@@ -46,13 +46,13 @@ Le joueur incarne un agent de parking qui se déplace à pied.
 - **Règle non négociable : une voiture ne roule jamais sur un piéton.** Elle s'arrête et attend.
 - Les occupants d'une voiture garée (1 à 3) en descendent l'un après l'autre et marchent ensemble jusqu'à l'entrée du parc des expos : le long de l'arrière des voitures, puis par l'allée piétonne centrale et ses passages zébrés, puis le trottoir.
 - Une voiture s'arrête **à 2 m** d'un piéton qui est dans sa voie, ou qui va y entrer dans les 3 secondes. Elle roule au pas (2 m/s) dès qu'un piéton est près de sa voie, devant elle ou à côté.
-- Après s'être arrêtée pour un piéton, elle attend 1,5 s avant de repartir, sauf si l'agent lui fait signe (elle ne repart de toute façon jamais avec un piéton devant elle).
+- Après s'être arrêtée pour un piéton, elle attend 1,5 s avant de repartir, sauf si l'agent l'appelle (elle ne repart de toute façon jamais avec un piéton devant elle).
 - Un piéton laisse passer une voiture qui roule (il ne passe pas dans les 4 m devant elle), ne passe pas à moins de 1,6 m devant une voiture arrêtée, et garde ses distances avec les flancs (il peut longer la voie d'une voiture qui roule à 0,5 m de son flanc). Pour qu'il n'y ait jamais d'attente sans fin :
   - après 1,5 s devant une voiture arrêtée, il passe devant elle ou la longe (sans la toucher) ; si elle lui barre le chemin, il la contourne après 3 s ;
   - après 1,5 s à attendre des voitures qui roulent, il montre qu'il veut traverser : la suivante s'arrête pour lui ;
   - une voiture arrêtée plus de 4 s pour des piétons réclame son tour : ceux qui sont devant elle finissent de passer, les autres attendent (à 7 m devant elle) qu'elle soit passée ;
   - un piéton immobile depuis 6 s se faufile entre les voitures arrêtées, à 0,3 m de leur carrosserie.
-- **Arrêt par prudence** : un signe de l'agent près d'une voiture qui roule (moins de 12 m), avec des piétons à moins de 8 m d'elle, l'arrête. Une main rouge s'affiche au-dessus d'elle ; elle repart seule quand plus aucun piéton n'est devant elle (au plus tard après 8 s), et le joueur gagne des points de prudence.
+- **Arrêt par prudence** : un « Stop » de l'agent près d'une voiture qui roule (moins de 12 m), avec des piétons à moins de 8 m d'elle, l'arrête. Une main rouge s'affiche au-dessus d'elle ; elle repart seule quand plus aucun piéton n'est devant elle (au plus tard après 8 s), et le joueur gagne des points de prudence.
 - Des piétons traversent aussi la route d'entrée ; les voitures en approche s'arrêtent avant le passage.
 
 ### 3.4 Score
@@ -94,7 +94,7 @@ Chaque ajout n'est gardé que s'il rend le jeu plus amusant une fois testé.
 
 ## 6. Questions tranchées (2026-10-27)
 
-1. **Point de vue du joueur** : on incarne un agent qui se déplace, avec le geste « faire signe » pour limiter les allers-retours.
+1. **Point de vue du joueur** : on incarne un agent qui se déplace, avec les gestes « Appeler » (pour limiter les allers-retours) et « Stop » (pour protéger les piétons).
 2. **Fin de partie** : à 11:00. Un parking plein n'arrête pas la partie.
 3. **Durée** : environ 4 minutes, à régler en jouant.
 4. **Échec possible** : oui, quand la file bloque la route d'entrée.
@@ -112,10 +112,10 @@ Valeurs initiales, à régler en jouant dans `src/config.ts`.
 | File maximale avant défaite           | environ 8 voitures  |
 | Patience                              | 14 s                |
 | Regard de la voiture de tête          | cône de ±15°, 25 m  |
-| Vitesse d'approche (regard / signe)   | 2,5 / 7 unités/s    |
-| Rayon du geste « faire signe »        | 30 m                |
+| Vitesse d'approche (regard / appel)   | 2,5 / 7 unités/s    |
+| Rayon du geste « Appeler »           | 30 m                |
 | Vitesse des voitures                  | 7 à 9 unités/s      |
 | Vitesse des piétons                   | 1,6 à 2,1 unités/s  |
 | Arrêt d'une voiture devant un piéton  | 2 m, puis 1,5 s avant de repartir |
-| Arrêt par prudence (signe)            | voiture à moins de 12 m, piétons à moins de 8 m |
+| Arrêt par prudence (« Stop »)         | voiture à moins de 12 m, piétons à moins de 8 m |
 | Durée réelle de 08:00 à 11:00         | environ 4 min       |

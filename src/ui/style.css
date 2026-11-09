@@ -29,7 +29,7 @@
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
 }
 
-.bouton-signe {
+.bouton-geste {
   position: fixed;
   right: max(20px, env(safe-area-inset-right));
   bottom: max(24px, env(safe-area-inset-bottom));
@@ -52,12 +52,23 @@
   transition: transform 0.08s;
 }
 
-.bouton-signe span {
+.bouton-geste span {
   font-size: 26px;
 }
 
-.bouton-signe:active {
+.bouton-geste:active {
   transform: scale(0.92);
+}
+/* « Stop » au-dessus d'« Appeler », un peu plus petit : on appelle plus souvent. */
+.bouton-stop {
+  bottom: calc(max(24px, env(safe-area-inset-bottom)) + 96px);
+  width: 72px;
+  height: 72px;
+  background: #e5533d;
+  color: #ffffff;
+}
+.bouton-stop span {
+  font-size: 22px;
 }
 
 .hud-score {

@@ -9,7 +9,7 @@ import { afficherScore, pointsVolants } from './ui/hud';
 import { ajusterCamera, creerCamera, suivre } from './scene/camera';
 import { creerDecor } from './scene/decor';
 import { creerRendu, creerScene } from './scene/scene';
-import { lireDirection, prendreTap, signeDemande } from './ui/controles';
+import { gestesDemandes, lireDirection, prendreTap } from './ui/controles';
 import { placeSous } from './game/parking';
 
 const rendu = creerRendu();
@@ -78,14 +78,15 @@ function boucle(temps: number): void {
   // Plafonné : un onglet revenu au premier plan ne doit pas faire de bond.
   const dt = Math.min(horloge.getDelta(), 0.1);
   if (agent) {
-    const signe = signeDemande();
-    if (signe) agent.faireSigne();
+    const gestes = gestesDemandes();
+    if (gestes.stop) agent.faireSigne('stop');
+    else if (gestes.appel) agent.faireSigne('appel');
     agent.mettreAJour(lireDirection(), dt);
     suivre(camera, agent.objet.position, dt);
     const tap = prendreTap();
     if (tap) taper(tap.x, tap.y);
     pietons.mettreAJour(dt, voitures.roulantes());
-    voitures.mettreAJour(dt, agent.objet.position, signe, pietons.mobiles());
+    voitures.mettreAJour(dt, agent.objet.position, gestes, pietons.mobiles());
   }
   rendu.render(scene, camera);
   requestAnimationFrame(boucle);

@@ -14,6 +14,8 @@ export const config = {
     gilet: 0xe9f018,
     giletBandes: 0xdfe4ea,
     regard: 0xffffff,
+    // Geste « Stop » et main au-dessus d'une voiture arrêtée par prudence.
+    stop: '#e5533d',
   },
 
   parking: {
@@ -159,12 +161,13 @@ export const config = {
     attenteVoiture: 4,
   },
 
+  // Deux gestes de l'agent : « Appeler » (barre d'espace) et « Stop » (touche E).
   signe: {
-    // Distance à laquelle la voiture de tête remarque le geste (m).
+    // Distance à laquelle la voiture de tête remarque l'appel (m).
     rayon: 30,
     // Durée du geste (s).
     duree: 0.7,
-    // Arrêt par prudence : un signe arrête une voiture qui roule à cette distance de l'agent
+    // Arrêt par prudence : « Stop » arrête une voiture qui roule à cette distance de l'agent
     // si des piétons sont à moins de `zonePietons` d'elle. Elle repart seule quand ils
     // sont loin depuis `liberation` secondes (m, m, s).
     rayonArret: 12,

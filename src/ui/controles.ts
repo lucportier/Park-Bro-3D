@@ -17,12 +17,14 @@ const GAUCHE = ['KeyA', 'ArrowLeft'];
 const DROITE = ['KeyD', 'ArrowRight'];
 const TOUCHES_JEU = [...HAUT, ...BAS, ...GAUCHE, ...DROITE];
 
-// Geste « faire signe » : barre d'espace ou bouton à l'écran, consommé une fois.
-let signe = false;
+// Gestes de l'agent, consommés une fois : « Appeler » (barre d'espace) et « Stop »
+// (touche E), ou leurs boutons à l'écran.
+const gestes = { appel: false, stop: false };
 
 window.addEventListener('keydown', (e) => {
   if (TOUCHES_JEU.includes(e.code) || e.code === 'Space') e.preventDefault();
-  if (e.code === 'Space' && !e.repeat) signe = true;
+  if (e.code === 'Space' && !e.repeat) gestes.appel = true;
+  if (e.code === 'KeyE' && !e.repeat) gestes.stop = true;
   touchesEnfoncees.add(e.code);
 });
 window.addEventListener('keyup', (e) => touchesEnfoncees.delete(e.code));
@@ -106,22 +108,27 @@ export function lireDirection(): Direction {
   return longueur > 0 ? { x: x / longueur, z: z / longueur } : { x: 0, z: 0 };
 }
 
-const boutonSigne = document.createElement('button');
-boutonSigne.className = 'bouton-signe';
-boutonSigne.type = 'button';
-boutonSigne.innerHTML = '<span>✋</span>Signe';
-// Le doigt posé sur le bouton ne doit pas lancer le joystick.
-boutonSigne.addEventListener('pointerdown', (e) => {
-  e.stopPropagation();
-  e.preventDefault();
-  signe = true;
-});
-document.body.appendChild(boutonSigne);
+function boutonGeste(classe: string, emoji: string, texte: string, geste: keyof typeof gestes): void {
+  const b = document.createElement('button');
+  b.className = `bouton-geste ${classe}`;
+  b.type = 'button';
+  b.innerHTML = `<span>${emoji}</span>${texte}`;
+  // Le doigt posé sur le bouton ne doit pas lancer le joystick.
+  b.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    gestes[geste] = true;
+  });
+  document.body.appendChild(b);
+}
+boutonGeste('bouton-appel', '👋', 'Appeler', 'appel');
+boutonGeste('bouton-stop', '✋', 'Stop', 'stop');
 
-export function signeDemande(): boolean {
-  const demande = signe;
-  signe = false;
-  return demande;
+// Gestes demandés depuis la dernière image.
+export function gestesDemandes(): { appel: boolean; stop: boolean } {
+  const demandes = { ...gestes };
+  gestes.appel = gestes.stop = false;
+  return demandes;
 }
 
 export function prendreTap(): { x: number; y: number } | null {
