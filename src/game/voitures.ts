@@ -38,27 +38,46 @@ interface Voiture extends VoitureEnFile {
   roues: THREE.Object3D[];
 }
 
-// Voiture sortie de la file, qui roule dans le parking : vers l'agent, puis vers sa place.
+// Vie d'une voiture :
+//
+//   file ──(voit l'agent / signe)──► approche ──(place choisie / patience à bout)──► versPlace
+//     └──────────(place choisie près de l'agent / patience à bout)──────────────────────┘
+//   versPlace ──(devant la place)──► manoeuvre ──(au centre)──► garée (occupants descendent)
+//
+// La file est gérée par `avancerFile` ; ensuite la voiture devient une Roulante, et sa
+// phase dit ce qu'elle fait. Chaque phase porte seulement les données dont elle a besoin.
+// Quelle que soit sa phase, l'agent peut la retenir par un signe (voir `retenue`).
+type Phase =
+  // Vient vers l'agent. `appelee` : il lui a fait signe, elle vient vite même hors du regard.
+  | { nom: 'approche'; appelee: boolean }
+  // Roule sur la chaussée jusqu'à l'allée devant sa place.
+  | { nom: 'versPlace'; place: Place }
+  // Entre dans la place : courbe échantillonnée et distance déjà parcourue.
+  | { nom: 'manoeuvre'; place: Place; courbe: Point[]; s: number };
+
+// Arrêt demandé par le signe de l'agent, pour laisser passer des piétons.
+interface Retenue {
+  // Temps écoulé sans piéton devant elle, et depuis l'arrêt (s).
+  calme: number;
+  duree: number;
+  // Main rouge affichée au-dessus de la voiture.
+  main: THREE.Sprite;
+}
+
+// Voiture sortie de la file, qui roule dans le parking.
 interface Roulante {
   voiture: Voiture;
   // Cap : angle autour de y, l'avant du modèle pointant vers (sin cap, cos cap).
   cap: number;
   // Ordre de départ : une voiture cède le passage à celles parties avant elle.
   ordre: number;
-  // L'agent lui a fait signe : elle vient vite, même s'il sort de son regard.
-  appelee: boolean;
-  // Place choisie par le joueur (null tant qu'elle vient vers l'agent).
-  place: Place | null;
-  // Manœuvre finale vers le centre de la place : courbe échantillonnée et distance parcourue.
-  courbe: { points: Point[]; s: number } | null;
+  phase: Phase;
   // Temps restant avant de repartir après s'être arrêtée pour un piéton (s).
   reprise: number;
-  // Arrêtée par le signe de l'agent : temps écoulé sans piéton devant elle, et depuis
-  // l'arrêt (null si elle roule).
-  retenue: number | null;
-  dureeRetenue: number;
+  // Présente tant que l'agent la retient.
+  retenue: Retenue | null;
+  // Le bonus de prudence n'est donné qu'une fois par voiture.
   prudenceDonnee: boolean;
-  main: THREE.Sprite | null;
 }
 
 // Distance que la voiture peut encore parcourir avant un obstacle dans son couloir.
@@ -346,14 +365,10 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
       voiture,
       cap: Math.PI / 2,
       ordre: departs++,
-      appelee,
-      place: null,
-      courbe: null,
+      phase: { nom: 'approche', appelee },
       reprise: 0,
       retenue: null,
-      dureeRetenue: 0,
       prudenceDonnee: false,
-      main: null,
     };
   }
 
@@ -370,7 +385,7 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
 
   function envoyerSurPlace(r: Roulante, place: Place): void {
     if (r === approche) approche = null;
-    r.place = place;
+    r.phase = { nom: 'versPlace', place };
     libres[place.id] = false;
     garages.push(r);
     r.voiture.jauge.objet.visible = false;
@@ -399,7 +414,7 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
   // Obstacles pour une voiture qui roule : l'agent, et les voitures parties avant elle.
   function obstaclesPour(r: Roulante): Obstacle[] {
     // En se garant, la voiture roule au pas : elle peut s'approcher plus près de l'agent.
-    const marge = r.place ? ga.margeAgent : ap.distanceAgent;
+    const marge = r.phase.nom === 'approche' ? ap.distanceAgent : ga.margeAgent;
     const liste = [{ point: { x: agentPos.x, z: agentPos.z }, demiLargeur: ga.couloirAgent, marge }, ...pietons];
     for (const autre of garages) {
       if (autre !== r && autre.ordre < r.ordre) {
@@ -430,12 +445,11 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
     for (const r of approche ? [approche, ...garages] : garages) {
       if (r.voiture.objet.position.distanceTo(agentPos) > config.signe.rayonArret) continue;
       if (r.retenue === null && pietonsAutour(r) && (r.voiture.vitesse > 0.5 || r.reprise > 0)) {
-        r.retenue = 0;
-        r.dureeRetenue = 0;
-        r.main = new THREE.Sprite(new THREE.SpriteMaterial({ map: texteMain, depthTest: false }));
-        r.main.scale.setScalar(1.4);
-        r.main.renderOrder = 12;
-        scene.add(r.main);
+        const main = new THREE.Sprite(new THREE.SpriteMaterial({ map: texteMain, depthTest: false }));
+        main.scale.setScalar(1.4);
+        main.renderOrder = 12;
+        scene.add(main);
+        r.retenue = { calme: 0, duree: 0, main };
         retenues.add(r);
       } else if (r.retenue === null && r.reprise > 0) {
         r.reprise = 0;
@@ -447,7 +461,8 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
   // Une voiture retenue repart seule quand plus aucun piéton n'est devant elle (ni près de
   // sa voie), et au plus tard après `arretMax`.
   function gererRetenue(r: Roulante, dt: number): void {
-    if (r.retenue === null) return;
+    const retenue = r.retenue;
+    if (retenue === null) return;
     const pc = config.pietons;
     const p = r.voiture.objet.position;
     const devant = pietonPresDeLaVoie(
@@ -459,61 +474,64 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
       pc.porteeVigilance,
       pc.anticipation,
     );
-    r.retenue = devant ? 0 : r.retenue + dt;
-    r.dureeRetenue += dt;
-    r.main!.position.set(p.x, config.patience.hauteurAuDessus, p.z);
-    if (r.retenue < config.signe.liberation && r.dureeRetenue < config.signe.arretMax) return;
+    retenue.calme = devant ? 0 : retenue.calme + dt;
+    retenue.duree += dt;
+    retenue.main.position.set(p.x, config.patience.hauteurAuDessus, p.z);
+    if (retenue.calme < config.signe.liberation && retenue.duree < config.signe.arretMax) return;
     r.retenue = null;
-    scene.remove(r.main!);
-    r.main = null;
+    scene.remove(retenue.main);
     if (!r.prudenceDonnee) {
       r.prudenceDonnee = true;
       surEvenement({ type: 'prudence', position: p });
     }
   }
 
-  function avancerVersAgent(r: Roulante, dt: number): void {
+  function avancerVersAgent(r: Roulante, appelee: boolean, dt: number): void {
     const pos = { x: r.voiture.objet.position.x, z: r.voiture.objet.position.z };
     const agent = { x: agentPos.x, z: agentPos.z };
     const trajet = [pos, ...chemin(chaussee, pos, agent, r.cap)];
     const avant = avantDe(r.voiture.objet, r.cap, r.voiture.longueur);
-    const vitesseMax = r.appelee ? ap.vitesseSigne : voit(avant, r.cap, agentPos) ? ap.vitesseLente : 0;
+    const vitesseMax = appelee ? ap.vitesseSigne : voit(avant, r.cap, agentPos) ? ap.vitesseLente : 0;
     // Elle s'arrête avant l'agent, le long du trajet comme en ligne droite.
     const libre = Math.min(longueur(trajet), distance2D(pos, agent)) - r.voiture.longueur / 2 - ap.distanceAgent;
     rouler(r, trajet, vitesseMax, libre, obstaclesPour(r), ap.visee, plafondPour(r, dt), dt);
   }
 
   // Roule jusqu'à l'allée devant la place, puis y entre en marche avant par une courbe douce.
+  // Renvoie true quand la voiture est garée.
   function allerSeGarer(r: Roulante, dt: number): boolean {
-    const place = r.place!;
     const voiture = r.voiture;
-    if (!r.courbe) {
+    if (r.phase.nom === 'versPlace') {
+      const place = r.phase.place;
       const pos = { x: voiture.objet.position.x, z: voiture.objet.position.z };
       const trajet = [pos, ...chemin(chaussee, pos, entreeDePlace(place), r.cap)];
       // Assez près de l'entrée de la place (et devant elle) : on lance la manœuvre.
       if (longueur(trajet) <= ga.distanceManoeuvre) {
-        r.courbe = { points: courbeVersPlace(r, place), s: 0 };
+        r.phase = { nom: 'manoeuvre', place, courbe: courbeVersPlace(r, place), s: 0 };
       } else {
         rouler(r, trajet, ga.vitesse, longueur(trajet), obstaclesPour(r), ap.visee, plafondPour(r, dt), dt);
         return false;
       }
     }
 
-    const { points } = r.courbe;
+    if (r.phase.nom !== 'manoeuvre') return false;
+
+    const m = r.phase;
+    const points = m.courbe;
     const total = longueur(points);
-    const libre = libreDevant(r, total - r.courbe.s, obstaclesPour(r));
+    const libre = libreDevant(r, total - m.s, obstaclesPour(r));
     regler(voiture, Math.min(ga.vitesseManoeuvre, Math.sqrt(2 * v.freinage * libre) + 0.3), plafondPour(r, dt), dt);
     const pas = Math.min(voiture.vitesse * dt, libre);
-    r.courbe.s = Math.min(total, r.courbe.s + pas);
-    const ici = pointA(points, r.courbe.s);
-    const devant = pointA(points, Math.min(total, r.courbe.s + 0.3));
+    m.s = Math.min(total, m.s + pas);
+    const ici = pointA(points, m.s);
+    const devant = pointA(points, Math.min(total, m.s + 0.3));
     if (distance2D(ici, devant) > 0.01) r.cap = Math.atan2(devant.x - ici.x, devant.z - ici.z);
     voiture.objet.position.x = ici.x;
     voiture.objet.position.z = ici.z;
     voiture.objet.rotation.y = r.cap;
     for (const roue of voiture.roues) roue.rotation.x += pas / RAYON_ROUE;
-    if (r.courbe.s < total - 0.01) return false;
-    voiture.objet.rotation.y = place.angle;
+    if (m.s < total - 0.01) return false;
+    voiture.objet.rotation.y = m.place.angle;
     voiture.vitesse = 0;
     return true;
   }
@@ -589,20 +607,21 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
         for (const roue of voiture.roues) roue.rotation.x += (voiture.vitesse * dt) / RAYON_ROUE;
       }
 
-      if (approche) {
+      if (approche?.phase.nom === 'approche') {
+        const phase = approche.phase;
         if (signe && !retenues.has(approche) && approche.voiture.objet.position.distanceTo(agent) <= config.signe.rayon) {
-          approche.appelee = true;
+          phase.appelee = true;
         }
         gererRetenue(approche, dt);
         approche.ordre = departs; // toujours la dernière servie : elle cède le passage
-        avancerVersAgent(approche, dt);
+        avancerVersAgent(approche, phase.appelee, dt);
       }
       for (let i = garages.length - 1; i >= 0; i--) {
         const r = garages[i]!;
         gererRetenue(r, dt);
-        if (allerSeGarer(r, dt)) {
+        if (allerSeGarer(r, dt) && r.phase.nom === 'manoeuvre') {
           garages.splice(i, 1);
-          surEvenement({ type: 'garee', place: r.place! });
+          surEvenement({ type: 'garee', place: r.phase.place });
         }
       }
 
@@ -629,7 +648,7 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
         cone.objet.position.z = avant.z;
         cone.objet.rotation.y = regard.cap + Math.PI;
         cone.materiau.color.set(
-          voit(avant, regard.cap, agent) || approche?.appelee ? config.couleurs.agent : config.couleurs.regard,
+          voit(avant, regard.cap, agent) || (approche?.phase.nom === 'approche' && approche.phase.appelee) ? config.couleurs.agent : config.couleurs.regard,
         );
       }
     },

@@ -12,20 +12,25 @@ const p = config.parking;
 // le long de l'arrière des voitures, puis par l'allée piétonne centrale et ses passages,
 // puis le trottoir.
 
+// Vie d'un occupant : dansVoiture ──(délai écoulé)──► dehors ──(porte atteinte)──► entre ──► retiré.
+type Phase =
+  // Encore dans la voiture, invisible : il descend quand `attente` (s) est écoulée.
+  | { nom: 'dansVoiture'; attente: number }
+  // Dehors : il grandit (`apparition` de 0 à 1) en marchant vers trajet[etape].
+  // `bloque` : temps passé à attendre une voiture (s).
+  | { nom: 'dehors'; etape: number; apparition: number; bloque: number }
+  // Arrivé à la porte : il rapetisse et entre (temps écoulé depuis la porte, s).
+  | { nom: 'entre'; temps: number };
+
 interface Pieton extends PietonMobile {
   objet: THREE.Object3D;
   mixeur: THREE.AnimationMixer;
   marche: THREE.AnimationAction;
   repos: THREE.AnimationAction;
   trajet: Point[];
-  etape: number;
   vitesse: number;
-  // Délai avant de descendre de la voiture (s), puis disparition à la porte.
-  attente: number;
-  // Temps passé à attendre une voiture (s).
-  bloque: number;
-  disparition: number;
-  apparition: number;
+  phase: Phase;
+  // Animation jouée (marche ou repos), indépendante de la phase : il s'arrête devant une voiture.
   enMarche: boolean;
 }
 
@@ -73,18 +78,22 @@ export function creerPietons(scene: THREE.Scene) {
       marche,
       repos,
       trajet,
-      etape: 1,
       vitesse,
-      attente: rang * pc.delaiDescente + pc.delaiDescente,
-      bloque: 0,
-      disparition: -1,
-      apparition: 0,
+      phase: { nom: 'dansVoiture', attente: rang * pc.delaiDescente + pc.delaiDescente },
       enMarche: false,
       x: objet.position.x,
       z: objet.position.z,
       vx: 0,
       vz: 0,
     });
+  }
+
+  // Point du trajet atteint : il vise le suivant, ou entre s'il est à la porte.
+  function etapeSuivante(pi: Pieton, phase: { etape: number }): void {
+    phase.etape++;
+    if (phase.etape < pi.trajet.length) return;
+    pi.phase = { nom: 'entre', temps: 0 };
+    pi.vx = pi.vz = 0;
   }
 
   function changer(pi: Pieton, enMarche: boolean): void {
@@ -110,7 +119,7 @@ export function creerPietons(scene: THREE.Scene) {
 
     // Positions et vitesses des piétons visibles, pour que les voitures s'arrêtent devant eux.
     mobiles(): PietonMobile[] {
-      return pietons.filter((pi) => pi.objet.visible);
+      return pietons.filter((pi) => pi.phase.nom !== 'dansVoiture');
     },
 
     // `voitures` : les voitures qui circulent dans le parking.
@@ -118,49 +127,52 @@ export function creerPietons(scene: THREE.Scene) {
       for (let i = pietons.length - 1; i >= 0; i--) {
         const pi = pietons[i]!;
         pi.mixeur.update(dt);
-        if (pi.attente > 0) {
-          pi.attente -= dt;
-          if (pi.attente <= 0) pi.objet.visible = true;
+        const phase = pi.phase;
+        if (phase.nom === 'dansVoiture') {
+          phase.attente -= dt;
+          if (phase.attente <= 0) {
+            pi.phase = { nom: 'dehors', etape: 1, apparition: 0, bloque: 0 };
+            pi.objet.visible = true;
+          }
           continue;
         }
-        // Il apparaît en grandissant, comme s'il sortait de la voiture.
-        pi.apparition = Math.min(1, pi.apparition + dt / pc.dureeDisparition);
-        if (pi.disparition < 0) pi.objet.scale.setScalar(config.echelles.personnage * pi.apparition);
-        if (pi.disparition >= 0) {
-          // Arrivé à la porte : il rapetisse et entre.
-          pi.disparition += dt;
-          pi.objet.scale.setScalar(config.echelles.personnage * Math.max(0, 1 - pi.disparition / pc.dureeDisparition));
-          if (pi.disparition >= pc.dureeDisparition) {
+        if (phase.nom === 'entre') {
+          phase.temps += dt;
+          pi.objet.scale.setScalar(config.echelles.personnage * Math.max(0, 1 - phase.temps / pc.dureeDisparition));
+          if (phase.temps >= pc.dureeDisparition) {
             scene.remove(pi.objet);
             pietons.splice(i, 1);
           }
           continue;
         }
 
+        // Il apparaît en grandissant, comme s'il sortait de la voiture.
+        phase.apparition = Math.min(1, phase.apparition + dt / pc.dureeDisparition);
+        pi.objet.scale.setScalar(config.echelles.personnage * phase.apparition);
+
         const ici = { x: pi.x, z: pi.z };
-        const but = pi.trajet[pi.etape]!;
+        const but = pi.trajet[phase.etape]!;
         const dx = but.x - ici.x;
         const dz = but.z - ici.z;
         const d = Math.hypot(dx, dz);
         if (d < 1e-6) {
-          pi.etape++;
-          if (pi.etape >= pi.trajet.length) pi.disparition = 0;
+          etapeSuivante(pi, phase);
           continue;
         }
         // Patient au bout d'un moment : il passe devant une voiture arrêtée (souvent pour
         // d'autres piétons), et la contourne si elle lui barre le chemin.
-        const gene = bloqueur(ici, but, voitures, pc, pi.bloque > pc.patience);
+        const gene = bloqueur(ici, but, voitures, pc, phase.bloque > pc.patience);
         if (gene) {
-          pi.bloque += dt;
-          if (!gene.roule && pi.bloque > pc.patienceContournement) {
-            pi.trajet.splice(pi.etape, 0, contournement(ici, but, gene, pc.margeCarrosserie));
-            pi.bloque = 0;
+          phase.bloque += dt;
+          if (!gene.roule && phase.bloque > pc.patienceContournement) {
+            pi.trajet.splice(phase.etape, 0, contournement(ici, but, gene, pc.margeCarrosserie));
+            phase.bloque = 0;
           }
           pi.vx = pi.vz = 0;
           changer(pi, false);
           continue;
         }
-        pi.bloque = 0;
+        phase.bloque = 0;
         changer(pi, true);
         const pas = Math.min(d, pi.vitesse * dt);
         pi.vx = (dx / d) * pi.vitesse;
@@ -172,13 +184,7 @@ export function creerPietons(scene: THREE.Scene) {
         let ecart = Math.atan2(dx, dz) - pi.objet.rotation.y;
         ecart = Math.atan2(Math.sin(ecart), Math.cos(ecart));
         pi.objet.rotation.y += ecart * Math.min(1, 10 * dt);
-        if (pas >= d - 1e-6) {
-          pi.etape++;
-          if (pi.etape >= pi.trajet.length) {
-            pi.disparition = 0;
-            pi.vx = pi.vz = 0;
-          }
-        }
+        if (pas >= d - 1e-6) etapeSuivante(pi, phase);
       }
     },
   };
