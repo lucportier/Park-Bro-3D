@@ -1,9 +1,12 @@
-# Publie le jeu sur GitHub Pages à chaque push sur la branche stage.
+# Publie le jeu sur GitHub Pages à chaque push sur main ou stage :
+#   - prod (main)       : https://lucportier.github.io/Park-Bro-3D/
+#   - pré-prod (stage)  : https://lucportier.github.io/Park-Bro-3D/stage/
+# Les deux branches sont reconstruites à chaque fois : un seul site Pages par dépôt.
 name: Publication GitHub Pages
 
 on:
   push:
-    branches: [stage]
+    branches: [main, stage]
   workflow_dispatch:
 
 permissions:
@@ -20,16 +23,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: main
+          path: prod
+      - uses: actions/checkout@v5
+        with:
+          ref: stage
+          path: preprod
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run build
+      - run: npm ci && npm run build
+        working-directory: prod
+      - run: npm ci && npm run build
+        working-directory: preprod
+      - run: cp -r preprod/dist prod/dist/stage
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: prod/dist
 
   publier:
     needs: construire
