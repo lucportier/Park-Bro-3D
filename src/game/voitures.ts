@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { config } from '../config';
 import { modele } from '../scene/modeles';
-import { chemin, longueur, pointA, type Point } from './chaussee';
+import { chemin, longueur, pointA, projeter, type Point } from './chaussee';
 import { avancerFile, type VoitureEnFile } from './file';
 import {
   distanceLibre,
@@ -71,6 +71,8 @@ interface Roulante {
   cap: number;
   // Ordre de départ : une voiture cède le passage à celles parties avant elle.
   ordre: number;
+  // Écart à droite de l'axe de la chaussée (m) : près du milieu, plus à droite pour croiser.
+  decalage: number;
   phase: Phase;
   // Temps restant avant de repartir après s'être arrêtée pour un piéton (s).
   reprise: number;
@@ -174,23 +176,26 @@ function rouler(
   visee: number,
   plafond: number,
   dt: number,
+  droiteJusquauBout = false,
 ): void {
   const { voiture } = r;
   const pos = { x: voiture.objet.position.x, z: voiture.objet.position.z };
   const reste = longueur(trajet);
 
-  // Point visé un peu devant sur le trajet, décalé vers la droite tant qu'on n'est pas
-  // près du but (on roule à droite : deux voitures se croisent sans se toucher).
+  // Point visé un peu devant sur le trajet, décalé vers la droite de `r.decalage` (on
+  // roule à droite). Pour se garer, elle revient sur l'axe près du but ; pour venir à
+  // l'agent, elle garde sa droite jusqu'au bout et s'arrête à côté de lui.
   const d = Math.min(visee, reste);
   const vise = pointA(trajet, d);
+  const avantVise = pointA(trajet, Math.max(0, d - 0.5));
   const plusLoin = pointA(trajet, Math.min(d + 0.5, reste));
-  const l = distance2D(vise, plusLoin);
-  const decalage = ga.decalageDroite * THREE.MathUtils.clamp((reste - 4) / 4, 0, 1);
+  // Sens de la chaussée au point visé (au bout du trajet, celui du dernier tronçon).
+  const sens = distance2D(vise, plusLoin) > 0.01 ? [vise, plusLoin] : [avantVise, vise];
+  const l = distance2D(sens[0]!, sens[1]!);
+  const decalage = r.decalage * (droiteJusquauBout ? 1 : THREE.MathUtils.clamp((reste - 4) / 4, 0, 1));
   if (l > 0.01) {
-    const droiteX = -(plusLoin.z - vise.z) / l;
-    const droiteZ = (plusLoin.x - vise.x) / l;
-    vise.x += droiteX * decalage;
-    vise.z += droiteZ * decalage;
+    vise.x += (-(sens[1]!.z - sens[0]!.z) / l) * decalage;
+    vise.z += ((sens[1]!.x - sens[0]!.x) / l) * decalage;
   }
   let ecart = Math.atan2(vise.x - pos.x, vise.z - pos.z) - r.cap;
   ecart = Math.atan2(Math.sin(ecart), Math.cos(ecart));
@@ -322,6 +327,11 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
   let temps = 0;
   let agentPos = new THREE.Vector3();
   let pietons: Obstacle[] = [];
+  // Les mêmes, là où ils sont seulement (sans prévoir leur trajet).
+  let pietonsIci: Obstacle[] = [];
+  // Une voiture qui a son tour ne s'arrête que pour les piétons déjà devant elle : ceux qui
+  // arrivent s'arrêtent au bord de sa zone pour la laisser passer.
+  const sansAnticipation = { ...config.pietons, anticipation: 0 };
   let positionsPietons: Point[] = [];
   let mobilesPietons: PietonMobile[] = [];
 
@@ -370,6 +380,7 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
       voiture,
       cap: Math.PI / 2,
       ordre: departs++,
+      decalage: ga.decalageDroite,
       phase: { nom: 'approche', appelee },
       reprise: 0,
       arretPietons: 0,
@@ -421,7 +432,7 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
   function obstaclesPour(r: Roulante): Obstacle[] {
     // En se garant, la voiture roule au pas : elle peut s'approcher plus près de l'agent.
     const marge = r.phase.nom === 'approche' ? ap.distanceAgent : ga.margeAgent;
-    const liste = [{ point: { x: agentPos.x, z: agentPos.z }, demiLargeur: ga.couloirAgent, marge }, ...pietons];
+    const liste = [{ point: { x: agentPos.x, z: agentPos.z }, demiLargeur: ga.couloirAgent, marge }, ...(presse(r) ? pietonsIci : pietons)];
     for (const autre of garages) {
       if (autre !== r && autre.ordre < r.ordre) {
         const p = autre.voiture.objet.position;
@@ -431,15 +442,22 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
     return liste;
   }
 
+  // Arrêtée depuis longtemps pour des piétons, elle réclame son tour (sauf si l'agent la retient).
+  function presse(r: Roulante): boolean {
+    return r.retenue === null && r.arretPietons > config.pietons.attenteVoiture;
+  }
+
   // Plafond de vitesse imposé par les piétons : arrêt demandé par l'agent, attente après
   // s'être arrêtée pour un piéton, ou allure au pas quand un piéton longe la voie.
   function plafondPour(r: Roulante, dt: number): number {
     const pos = { x: r.voiture.objet.position.x, z: r.voiture.objet.position.z };
-    const plafond = plafondPietons(r, pos, r.cap, r.voiture.longueur / 2, mobilesPietons, config.pietons, dt);
-    // Le compte monte tant que des piétons la retiennent, retombe quand c'est autre chose
-    // (l'agent, une voiture), et repart de zéro dès qu'elle roule.
-    if (r.voiture.vitesse > 0.5) r.arretPietons = 0;
-    else r.arretPietons = r.reprise > 0 ? r.arretPietons + dt : Math.max(0, r.arretPietons - dt);
+    const reglages = presse(r) ? sansAnticipation : config.pietons;
+    const plafond = plafondPietons(r, pos, r.cap, r.voiture.longueur / 2, mobilesPietons, reglages, dt);
+    // Le compte monte tant que des piétons la retiennent ; il retombe quand c'est autre
+    // chose (l'agent, une voiture), et deux fois plus vite quand elle roule : un petit
+    // élan entre deux piétons ne lui fait pas perdre son tour.
+    if (r.voiture.vitesse <= 0.5 && r.reprise > 0) r.arretPietons += dt;
+    else r.arretPietons = Math.max(0, r.arretPietons - (r.voiture.vitesse > 0.5 ? 2 : 1) * dt);
     return r.retenue !== null ? 0 : plafond;
   }
 
@@ -502,15 +520,46 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
     }
   }
 
+  // Près du milieu de la chaussée, sauf quand une voiture vient en face : les deux se
+  // serrent à droite pour se croiser, en douceur.
+  function ajusterDecalages(dt: number): void {
+    const roulantes = approche ? [approche, ...garages] : garages;
+    for (const r of roulantes) {
+      const p = r.voiture.objet.position;
+      const dir = { x: Math.sin(r.cap), z: Math.cos(r.cap) };
+      const enFace = roulantes.some((o) => {
+        if (o === r) return false;
+        const dx = o.voiture.objet.position.x - p.x;
+        const dz = o.voiture.objet.position.z - p.z;
+        const devant = dx * dir.x + dz * dir.z;
+        const opposee = Math.sin(o.cap) * dir.x + Math.cos(o.cap) * dir.z < -0.7;
+        return opposee && devant > 0 && devant < ga.porteeCroisement && Math.abs(dx * dir.z - dz * dir.x) < 5;
+      });
+      const vise = enFace ? ga.decalageCroisement : ga.decalageDroite;
+      const pas = ga.vitesseDeport * dt;
+      r.decalage += THREE.MathUtils.clamp(vise - r.decalage, -pas, pas);
+    }
+  }
+
+  // La voiture vient le long de la chaussée, à sa droite, jusqu'à hauteur de l'agent : elle
+  // s'arrête à côté de lui (avant lui s'il est sur sa voie), sans jamais foncer sur lui.
   function avancerVersAgent(r: Roulante, appelee: boolean, dt: number): void {
     const pos = { x: r.voiture.objet.position.x, z: r.voiture.objet.position.z };
+    const dir = { x: Math.sin(r.cap), z: Math.cos(r.cap) };
+    const dx = agentPos.x - pos.x;
+    const dz = agentPos.z - pos.z;
+    const devant = dx * dir.x + dz * dir.z;
+    const cote = Math.abs(dx * dir.z - dz * dir.x);
+    // Arrivée à sa hauteur : elle attend là ses instructions (pas de tour pour un pas de trop).
+    const aSaHauteur = Math.abs(devant) < ap.toleranceHauteur && cote < ap.coteAgent + ga.decalageCroisement;
     const agent = { x: agentPos.x, z: agentPos.z };
     const trajet = [pos, ...chemin(chaussee, pos, agent, r.cap)];
     const avant = avantDe(r.voiture.objet, r.cap, r.voiture.longueur);
-    const vitesseMax = appelee ? ap.vitesseSigne : voit(avant, r.cap, agentPos) ? ap.vitesseLente : 0;
-    // Elle s'arrête avant l'agent, le long du trajet comme en ligne droite.
-    const libre = Math.min(longueur(trajet), distance2D(pos, agent)) - r.voiture.longueur / 2 - ap.distanceAgent;
-    rouler(r, trajet, vitesseMax, libre, obstaclesPour(r), ap.visee, plafondPour(r, dt), dt);
+    // Elle le suit tant qu'elle le voit, ou qu'il l'attend devant elle au bord de la chaussée.
+    const auBord = distance2D(agent, projeter(chaussee, agent).point) < ap.coteAgent;
+    const leVoit = voit(avant, r.cap, agentPos) || (devant > 0 && auBord && longueur(trajet) < ap.porteeRegard);
+    const vitesseMax = aSaHauteur ? 0 : appelee ? ap.vitesseSigne : leVoit ? ap.vitesseLente : 0;
+    rouler(r, trajet, vitesseMax, aSaHauteur ? 0 : longueur(trajet), obstaclesPour(r), ap.visee, plafondPour(r, dt), dt, true);
   }
 
   // Roule jusqu'à l'allée devant la place, puis y entre en marche avant par une courbe douce.
@@ -576,13 +625,14 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
         demiLongueur: r.voiture.longueur / 2,
         demiLargeur: r.voiture.largeur / 2,
         roule: r.voiture.vitesse > 0.5,
-        presse: r.retenue === null && r.arretPietons > config.pietons.attenteVoiture,
+        presse: presse(r),
       }));
     },
 
     mettreAJour(dt: number, agent: THREE.Vector3, gestes: { appel: boolean; stop: boolean }, mobiles: PietonMobile[]): void {
       agentPos = agent;
       pietons = obstaclesPietons(mobiles, config.pietons);
+      pietonsIci = obstaclesPietons(mobiles, sansAnticipation);
       positionsPietons = mobiles.map((m) => ({ x: m.x, z: m.z }));
       mobilesPietons = mobiles;
       if (gestes.stop) arreterParPrudence();
@@ -621,6 +671,7 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
         for (const roue of voiture.roues) roue.rotation.x += (voiture.vitesse * dt) / RAYON_ROUE;
       }
 
+      ajusterDecalages(dt);
       if (approche?.phase.nom === 'approche') {
         const phase = approche.phase;
         if (gestes.appel && approche.voiture.objet.position.distanceTo(agent) <= config.signe.rayon) {

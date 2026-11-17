@@ -70,8 +70,13 @@ export const config = {
     // Vitesse quand elle voit simplement l'agent, et quand il lui a fait signe (m/s).
     vitesseLente: 2.5,
     vitesseSigne: 7,
-    // Distance gardée entre l'avant de la voiture et l'agent (m).
+    // Distance gardée entre l'avant de la voiture et l'agent quand il est sur sa voie (m).
     distanceAgent: 2,
+    // Elle vient jusqu'à hauteur de l'agent : son milieu à moins de `toleranceHauteur` de
+    // lui, en longueur. Il l'attend au bord de la chaussée s'il est à moins de `coteAgent`
+    // de sa ligne médiane (m).
+    toleranceHauteur: 1.2,
+    coteAgent: 5,
     // Plus petit rayon de virage, et distance du point visé sur la chaussée (m).
     rayonBraquage: 4.5,
     visee: 3.5,
@@ -82,8 +87,13 @@ export const config = {
     // Distance entre l'agent et la voiture pour qu'elle attende sa place (m).
     distanceChoix: 9,
     vitesse: 4.5,
-    // On roule à droite de la ligne médiane des allées (m).
-    decalageDroite: 1.5,
+    // On roule à droite de la ligne médiane des allées, près du milieu pour laisser le
+    // bord aux piétons, et plus à droite pour croiser une voiture qui vient en face (m).
+    decalageDroite: 0.5,
+    decalageCroisement: 1.5,
+    // Une voiture en face à moins de ça déclenche le croisement ; vitesse du déport (m, m/s).
+    porteeCroisement: 18,
+    vitesseDeport: 1.5,
     // À cette distance de l'allée devant sa place, la voiture entame sa manœuvre (m).
     distanceManoeuvre: 4.5,
     vitesseManoeuvre: 2.5,

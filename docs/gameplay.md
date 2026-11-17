@@ -16,7 +16,7 @@ Ce document remplace l'ensemble des specs de la version 2D pour la nouvelle vers
 Le joueur incarne un agent de parking qui se déplace à pied.
 
 1. Des voitures arrivent par la route d'entrée et font la queue à l'entrée du parking. Il n'y a pas de barrière (elle est levée dès 8 h) : la voiture de tête s'arrête à la ligne d'arrêt et attend l'agent.
-2. Si l'agent est **dans le regard** de la voiture de tête (un cône étroit devant elle, dessiné au sol), elle quitte la file et s'avance doucement vers lui, en restant sur la chaussée (route, allées, voies latérales). S'il sort de son regard, elle s'arrête.
+2. Si l'agent est **dans le regard** de la voiture de tête (un cône étroit devant elle, dessiné au sol), elle quitte la file et s'avance doucement vers lui, en restant sur la chaussée (route, allées, voies latérales) et à sa droite, jusqu'à sa hauteur : elle s'arrête à côté de lui pour recevoir ses instructions (avant lui s'il se tient sur sa voie). Elle continue tant qu'elle le voit, ou qu'il l'attend devant elle au bord de la chaussée ; sinon elle s'arrête.
 3. S'il l'**appelle** (bouton « Appeler », barre d'espace sur ordinateur) et qu'elle est assez proche, elle vient vite jusqu'à lui, même s'il sort de son regard. Cela évite de remonter jusqu'à l'entrée à chaque voiture.
 4. Une fois la voiture près de l'agent (ou la tête de file à la ligne, si l'agent est tout près), les places libres s'éclairent : le joueur en choisit une (clic ou tap). La voiture s'y rend par la chaussée et s'y gare en marche avant.
 5. Sans geste, la patience baisse : jauge vide, la voiture cherche une place seule (voir §3.2).
@@ -34,7 +34,7 @@ Le joueur incarne un agent de parking qui se déplace à pied.
 
 ### 3.2 Voitures
 
-- Une voiture ne roule que sur la chaussée, à droite, ne fait ni marche arrière ni demi-tour (elle fait le tour s'il le faut) ; elle s'arrête toujours avant l'agent.
+- Une voiture ne roule que sur la chaussée, un peu à droite du milieu (pour laisser le bord aux piétons) ; elle se serre à droite quand une voiture vient en face. Elle ne fait ni marche arrière ni demi-tour (elle fait le tour s'il le faut) ; elle s'arrête toujours avant l'agent.
 - Une seule voiture à la fois quitte la file pour venir vers l'agent.
 - Une voiture qui attend a une jauge de patience visible (verte tant que le bonus est possible, puis jaune, puis rouge). Seule la tête de file (ou la voiture qui vient vers l'agent) perd sa patience à plein régime ; les suivantes, arrêtées dans la file, la perdent deux fois moins vite. Une voiture qui roule encore vers la file ne s'impatiente pas.
 - Jauge vide : la tête de file se gare seule sur une place libre au hasard, avec une pénalité. Une voiture plus loin dans la file, à bout de patience, part seule dès qu'elle arrive en tête.
@@ -50,7 +50,7 @@ Le joueur incarne un agent de parking qui se déplace à pied.
 - Un piéton laisse passer une voiture qui roule (il ne passe pas dans les 4 m devant elle), ne passe pas à moins de 1,6 m devant une voiture arrêtée, et garde ses distances avec les flancs (il peut longer la voie d'une voiture qui roule à 0,5 m de son flanc). Pour qu'il n'y ait jamais d'attente sans fin :
   - après 1,5 s devant une voiture arrêtée, il passe devant elle ou la longe (sans la toucher) ; si elle lui barre le chemin, il la contourne après 3 s ;
   - après 1,5 s à attendre des voitures qui roulent, il montre qu'il veut traverser : la suivante s'arrête pour lui ;
-  - une voiture arrêtée plus de 4 s pour des piétons réclame son tour : ceux qui sont devant elle finissent de passer, les autres attendent (à 7 m devant elle) qu'elle soit passée ;
+  - une voiture arrêtée plus de 4 s pour des piétons réclame son tour : ceux qui sont devant elle finissent de passer, les autres attendent (à 7 m devant elle) qu'elle soit passée ; elle ne s'arrête plus alors que pour les piétons qui sont réellement devant elle ;
   - un piéton immobile depuis 6 s se faufile entre les voitures arrêtées, à 0,3 m de leur carrosserie.
 - **Arrêt par prudence** : un « Stop » de l'agent près d'une voiture qui roule (moins de 12 m), avec des piétons à moins de 8 m d'elle, l'arrête. Une main rouge s'affiche au-dessus d'elle ; elle repart seule quand plus aucun piéton n'est devant elle (au plus tard après 8 s), et le joueur gagne des points de prudence.
 - Des piétons traversent aussi la route d'entrée ; les voitures en approche s'arrêtent avant le passage.
