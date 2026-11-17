@@ -68,14 +68,15 @@ Les deux premières lignes se cumulent : une voiture placée rapidement rapporte
 
 ### 3.5 Fin de partie
 
-- L'horloge de jeu va de 08:00 à 11:00 en environ 4 minutes réelles. La partie s'arrête à 11:00.
-- **Défaite** : si la file d'attente dépasse la longueur de la route d'entrée (environ 8 voitures), la route est bloquée et la partie est perdue immédiatement.
+- L'horloge de jeu, affichée à côté du score, va de 08:00 à 11:00 en 4 minutes réelles ; elle clignote en rouge les 20 dernières secondes. La partie s'arrête à 11:00.
+- **Défaite** : si une voiture arrive alors que 8 voitures attendent déjà sur la route d'entrée, la route est bloquée et la partie est perdue immédiatement.
+- L'écran de fin affiche le score, le nombre de voitures garées et le meilleur score gardé sur l'appareil (« Nouveau record ! » s'il est battu), avec un bouton « Rejouer ».
 
 ## 4. Ajouts prévus, par ordre de priorité
 
 Chaque ajout n'est gardé que s'il rend le jeu plus amusant une fois testé.
 
-1. **Fin de partie et écran de bilan** (score, voitures garées, meilleur score local).
+1. ~~**Fin de partie et écran de bilan**~~ : fait (voir 3.5).
 2. **Rush** : les arrivées s'accélèrent vers 09:00-09:30, puis se calment.
 3. **Profils de conducteurs** : pressés (peu de patience), hésitants (roulent lentement), exposants (passent par une autre entrée).
 4. **Incidents**, chacun réglé quand l'agent rejoint la voiture concernée et la touche :
@@ -109,7 +110,7 @@ Valeurs initiales, à régler en jouant dans `src/config.ts`.
 | Places                                | environ 40, plusieurs allées |
 | Voitures déjà garées au départ        | 6                   |
 | Intervalle entre deux arrivées        | 4 à 7,5 s           |
-| File maximale avant défaite           | environ 8 voitures  |
+| File maximale avant défaite           | 8 voitures          |
 | Patience                              | 14 s                |
 | Regard de la voiture de tête          | cône de ±15°, 25 m  |
 | Vitesse d'approche (regard / appel)   | 2,5 / 7 unités/s    |
@@ -118,4 +119,4 @@ Valeurs initiales, à régler en jouant dans `src/config.ts`.
 | Vitesse des piétons                   | 1,6 à 2,1 unités/s  |
 | Arrêt d'une voiture devant un piéton  | 2 m, puis 1,5 s avant de repartir |
 | Arrêt par prudence (« Stop »)         | voiture à moins de 12 m, piétons à moins de 8 m |
-| Durée réelle de 08:00 à 11:00         | environ 4 min       |
+| Durée réelle de 08:00 à 11:00         | 4 min               |

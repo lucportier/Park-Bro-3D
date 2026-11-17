@@ -36,6 +36,13 @@ export const config = {
     dallePassagePieton: 2,
   },
 
+  // Une journée de jeu : de 08:00 à 11:00 en `duree` secondes réelles.
+  partie: {
+    heureDebut: 8,
+    heureFin: 11,
+    duree: 240,
+  },
+
   voitures: {
     modeles: ['sedan', 'suv', 'hatchback-sports', 'taxi', 'van', 'suv-luxury', 'sedan-sports', 'delivery'],
     // Délai entre deux arrivées, tiré au hasard entre ces bornes (secondes).
@@ -50,7 +57,8 @@ export const config = {
     ecart: 1.5,
     // Distance gardée devant l'agent quand il est sur la voie (m).
     margeObstacle: 1.5,
-    // Nombre de voitures en file au-delà duquel plus rien n'arrive (la défaite viendra plus tard).
+    // Une voiture qui arrive alors que tant de voitures attendent déjà bloque la route :
+    // la partie est perdue.
     fileMax: 8,
   },
 

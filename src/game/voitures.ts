@@ -267,7 +267,9 @@ export type Evenement =
   | { type: 'placee'; patienceRestante: number; position: THREE.Vector3 }
   | { type: 'seule'; position: THREE.Vector3 }
   | { type: 'garee'; place: Place }
-  | { type: 'prudence'; position: THREE.Vector3 };
+  | { type: 'prudence'; position: THREE.Vector3 }
+  // Une voiture arrive et la file est pleine : la route est bloquée, la partie est perdue.
+  | { type: 'bloquee' };
 
 // Petite jauge de patience flottant au-dessus d'une voiture, toujours tournée vers la caméra.
 interface Jauge {
@@ -587,13 +589,9 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
       if (gestes.appel) relancer();
       temps += dt;
       prochaineArrivee -= dt;
-      if (
-        prochaineArrivee <= 0 &&
-        !enChargement &&
-        file.length < v.fileMax &&
-        arrivees < placesLibres &&
-        entreeLibre()
-      ) {
+      if (prochaineArrivee <= 0 && arrivees < placesLibres && file.length >= v.fileMax) {
+        surEvenement({ type: 'bloquee' });
+      } else if (prochaineArrivee <= 0 && !enChargement && arrivees < placesLibres && entreeLibre()) {
         prochaineArrivee = aleatoire(v.intervalleMin, v.intervalleMax);
         faireArriver().catch((erreur) => console.error('Voiture non chargée', erreur));
       }

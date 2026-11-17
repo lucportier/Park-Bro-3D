@@ -5,7 +5,8 @@ import { creerPietons } from './game/pietons';
 import { creerVoitures, type Evenement } from './game/voitures';
 import { ajouter, pointsPlacement } from './game/score';
 import { config } from './config';
-import { afficherScore, pointsVolants } from './ui/hud';
+import { afficherFin } from './ui/fin';
+import { afficherHeure, afficherScore, pointsVolants } from './ui/hud';
 import { ajusterCamera, creerCamera, suivre } from './scene/camera';
 import { creerDecor } from './scene/decor';
 import { creerRendu, creerScene } from './scene/scene';
@@ -19,9 +20,25 @@ creerDecor(scene).catch((erreur) => console.error('Décor non chargé', erreur))
 
 // Score : +10 (et +15 si la voiture est placée vite) par le joueur, −5 si elle se gare seule.
 let score = 0;
+let garees = 0;
+// Temps de jeu écoulé (s réelles) ; la partie se fige à la fin.
+let tempsPartie = 0;
+let finie = false;
+
+function finir(raison: 'horaire' | 'bloquee'): void {
+  if (finie) return;
+  finie = true;
+  afficherFin(raison, score, garees);
+}
+
 const pietons = creerPietons(scene);
 function surEvenement(e: Evenement): void {
+  if (e.type === 'bloquee') {
+    finir('bloquee');
+    return;
+  }
   if (e.type === 'garee') {
+    garees++;
     pietons.faireDescendre(e.place);
     return;
   }
@@ -77,7 +94,12 @@ function boucle(temps: number): void {
   horloge.update(temps);
   // Plafonné : un onglet revenu au premier plan ne doit pas faire de bond.
   const dt = Math.min(horloge.getDelta(), 0.1);
-  if (agent) {
+  if (agent && !finie) {
+    tempsPartie += dt;
+    const p = config.partie;
+    const part = Math.min(1, tempsPartie / p.duree);
+    afficherHeure(p.heureDebut + (p.heureFin - p.heureDebut) * part, p.duree - tempsPartie < 20);
+    if (part >= 1) finir('horaire');
     const gestes = gestesDemandes();
     if (gestes.stop) agent.faireSigne('stop');
     else if (gestes.appel) agent.faireSigne('appel');
