@@ -163,7 +163,6 @@ async function lampadaires(scene: THREE.Scene): Promise<void> {
     lampe.position.set(x, 0, plan.zNord - 0.6);
     scene.add(lampe);
     const lampeSud = await modele('routes/light-square', e.lampadaire);
-    lampeSud.rotation.y = Math.PI;
     lampeSud.position.set(x, 0, plan.zSud + 0.6);
     scene.add(lampeSud);
   }
