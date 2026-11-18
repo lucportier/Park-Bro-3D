@@ -18,8 +18,9 @@ type Phase =
   | { nom: 'dansVoiture'; attente: number }
   // Dehors : il grandit (`apparition` de 0 à 1) en marchant vers trajet[etape].
   // `bloque` : temps passé à attendre une voiture (s), remis à zéro à chaque détour ;
-  // `immobile` : temps depuis son dernier pas (s).
-  | { nom: 'dehors'; etape: number; apparition: number; bloque: number; immobile: number }
+  // `immobile` : temps depuis son dernier pas (s) ;
+  // `suit` : temps passé à attendre derrière un autre piéton (s), qui retombe en marchant.
+  | { nom: 'dehors'; etape: number; apparition: number; bloque: number; immobile: number; suit: number }
   // Arrivé à la porte : il rapetisse et entre (temps écoulé depuis la porte, s).
   | { nom: 'entre'; temps: number };
 
@@ -42,7 +43,9 @@ function aleatoire(min: number, max: number): number {
 }
 
 // Trajet d'un occupant depuis l'arrière de sa voiture jusqu'à la porte des expos.
-// Les occupants d'une même voiture marchent côte à côte, décalés selon leur rang.
+// Les occupants d'une même voiture sont décalés selon leur rang, perpendiculairement à
+// leur marche (en x quand ils vont vers le nord ou le sud, en z quand ils vont vers l'est
+// ou l'ouest), et sortent l'un après l'autre : jamais l'un dans l'autre.
 function trajetDepuis(place: Place, rang: number, xAllee: number, xPorte: number): Point[] {
   // Le nez de la voiture pointe vers le fond : l'arrière donne sur l'allée.
   const versPlace = Math.cos(place.angle) > 0 ? 1 : -1;
@@ -59,12 +62,32 @@ function trajetDepuis(place: Place, rang: number, xAllee: number, xPorte: number
     const zDevant = plan.zSud + 0.6;
     return [
       { x: place.x + decalage, z: zDevant },
-      { x: place.x + decalage, z: plan.zTrottoirSud },
-      { x: xAllee + decalage, z: plan.zTrottoirSud },
+      { x: place.x + decalage, z: plan.zTrottoirSud + decalage },
+      { x: xAllee + decalage, z: plan.zTrottoirSud + decalage },
       ...fin,
     ];
   }
-  return [{ x: place.x + decalage, z: zMarche }, { x: xAllee + decalage, z: zMarche }, ...fin];
+  // Le long des voitures, ils marchent en file (le décalage serait dans le sens de la marche).
+  return [{ x: place.x, z: zMarche }, { x: xAllee + decalage, z: zMarche }, ...fin];
+}
+
+// Y a-t-il, juste devant lui (selon sa direction `dir`), un autre piéton qui va à peu près
+// dans le même sens ? Les piétons qui se croisent en sens contraire ne se gênent pas.
+function derriereUnAutre(pi: Pieton, dirX: number, dirZ: number, tous: Pieton[]): boolean {
+  for (const autre of tous) {
+    if (autre === pi || autre.phase.nom !== 'dehors') continue;
+    const but = autre.trajet[autre.phase.etape];
+    if (!but) continue;
+    const ex = but.x - autre.x;
+    const ez = but.z - autre.z;
+    const e = Math.hypot(ex, ez);
+    if (e < 1e-6 || (ex * dirX + ez * dirZ) / e < 0.5) continue;
+    const dx = autre.x - pi.x;
+    const dz = autre.z - pi.z;
+    const devant = dx * dirX + dz * dirZ;
+    if (devant > 0.05 && devant < pc.ecartPieton && Math.abs(dx * dirZ - dz * dirX) < pc.ecartPieton * 0.7) return true;
+  }
+  return false;
 }
 
 export function creerPietons(scene: THREE.Scene) {
@@ -144,7 +167,7 @@ export function creerPietons(scene: THREE.Scene) {
         if (phase.nom === 'dansVoiture') {
           phase.attente -= dt;
           if (phase.attente <= 0) {
-            pi.phase = { nom: 'dehors', etape: 1, apparition: 0, bloque: 0, immobile: 0 };
+            pi.phase = { nom: 'dehors', etape: 1, apparition: 0, bloque: 0, immobile: 0, suit: 0 };
             pi.objet.visible = true;
           }
           continue;
@@ -172,6 +195,15 @@ export function creerPietons(scene: THREE.Scene) {
           etapeSuivante(pi, phase);
           continue;
         }
+        // Il ne marche pas dans le dos d'un autre piéton qui va dans le même sens : il reste
+        // derrière lui (sinon un groupe arrêté au même bord se superpose). Pas indéfiniment.
+        if (phase.suit < pc.patienceSuite && derriereUnAutre(pi, dx / d, dz / d, pietons)) {
+          phase.suit += dt;
+          pi.vx = pi.vz = 0;
+          changer(pi, false);
+          continue;
+        }
+        phase.suit = Math.max(0, phase.suit - dt);
         // Patient au bout d'un moment : il passe devant une voiture arrêtée (souvent pour
         // d'autres piétons), et la contourne si elle lui barre le chemin.
         const coince = phase.immobile > pc.patienceCoince;

@@ -137,7 +137,7 @@ export const config = {
     occupantsMin: 1,
     occupantsMax: 3,
     // Temps entre l'arrêt de la voiture et la descente de chaque occupant (s).
-    delaiDescente: 0.6,
+    delaiDescente: 0.9,
     vitesseMin: 1.6,
     vitesseMax: 2.1,
     // Vitesse pour laquelle l'animation de marche ne glisse pas (m/s).
@@ -146,6 +146,10 @@ export const config = {
     decalageAllee: 0,
     // Écart entre deux occupants d'une même voiture qui marchent côte à côte (m).
     ecartGroupe: 0.7,
+    // Un piéton garde cette distance derrière celui qui le précède, et patiente au plus
+    // `patienceSuite` secondes derrière lui (m, s).
+    ecartPieton: 0.8,
+    patienceSuite: 6,
     largeurPorte: 6,
     dureeDisparition: 0.35,
     // Un piéton ne passe jamais à moins de ça des flancs d'une voiture (m), ni devant son
