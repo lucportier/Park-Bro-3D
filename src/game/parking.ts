@@ -11,6 +11,7 @@ import type { Reseau } from './chaussee';
 //   rangée C  ▮▮▮▮▮ ┊ ▮▮▮▮▮
 //   allée 2   ═══════════════ ◄── portail ◄── route d'entrée
 //   rangée D  ▮▮▮▮▮ ┊ ▮▮▮▮▮
+//   ── trottoir ──────────────
 
 export interface Place {
   id: number;
@@ -100,6 +101,9 @@ export const plan = {
   demiPassage,
   zNord: zA,
   zSud: zFin,
+  // Milieux des trottoirs nord (devant le parc des expos) et sud (devant la rangée D).
+  zTrottoirNord: zA - p.largeurTrottoir / 2,
+  zTrottoirSud: zFin + p.largeurTrottoir / 2,
   // Centre de l'allée par laquelle arrivent les voitures.
   zEntree: zAllee2 + p.largeurAllee / 2,
   // Entrée du parking (pas de barrière : elle reste levée dès 8 h).

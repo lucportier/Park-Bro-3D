@@ -44,7 +44,7 @@ Le joueur incarne un agent de parking qui se déplace à pied.
 ### 3.3 Piétons
 
 - **Règle non négociable : une voiture ne roule jamais sur un piéton.** Elle s'arrête et attend.
-- Les occupants d'une voiture garée (1 à 3) en descendent l'un après l'autre et marchent ensemble jusqu'à l'entrée du parc des expos : le long de l'arrière des voitures, puis par l'allée piétonne centrale et ses passages zébrés, puis le trottoir.
+- Les occupants d'une voiture garée (1 à 3) en descendent l'un après l'autre et marchent ensemble jusqu'à l'entrée du parc des expos : le long de l'arrière des voitures, puis par l'allée piétonne centrale et ses passages zébrés, puis le trottoir. Ceux de la rangée du bas descendent côté trottoir sud (devant leur voiture) et le longent jusqu'à l'allée piétonne, sans marcher dans l'allée d'entrée.
 - Une voiture s'arrête **à 2 m** d'un piéton qui est dans sa voie, ou qui va y entrer dans les 3 secondes. Elle roule au pas (2 m/s) dès qu'un piéton est près de sa voie, devant elle ou à côté.
 - Après s'être arrêtée pour un piéton, elle attend 1,5 s avant de repartir, sauf si l'agent l'appelle (elle ne repart de toute façon jamais avec un piéton devant elle).
 - Un piéton laisse passer une voiture qui roule (il ne passe pas dans les 4 m devant elle), ne passe pas à moins de 1,6 m devant une voiture arrêtée, et garde ses distances avec les flancs (il peut longer la voie d'une voiture qui roule à 0,5 m de son flanc). Pour qu'il n'y ait jamais d'attente sans fin :

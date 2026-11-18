@@ -75,9 +75,11 @@ function sol(scene: THREE.Scene): void {
     zebre(scene, -plan.demiPassage, allee.z1, plan.demiPassage, allee.z2);
   }
 
-  // Trottoir le long du parc des expos.
-  const trottoir = { x1: plan.asphalte.x1, z1: plan.zNord - p.largeurTrottoir, x2: plan.asphalte.x2, z2: plan.zNord };
-  scene.add(pave(trottoir, 0.15, matPietons));
+  // Trottoirs le long du parc des expos et au bas du parking.
+  const nord = { x1: plan.asphalte.x1, z1: plan.zNord - p.largeurTrottoir, x2: plan.asphalte.x2, z2: plan.zNord };
+  const sud = { x1: plan.asphalte.x1, z1: plan.zSud, x2: plan.asphalte.x2, z2: plan.zSud + p.largeurTrottoir };
+  scene.add(pave(nord, 0.15, matPietons));
+  scene.add(pave(sud, 0.15, matPietons));
 }
 
 // Bandes blanches d'un passage piéton, perpendiculaires au sens de marche (nord-sud).
@@ -163,7 +165,7 @@ async function lampadaires(scene: THREE.Scene): Promise<void> {
     lampe.position.set(x, 0, plan.zNord - 0.6);
     scene.add(lampe);
     const lampeSud = await modele('routes/light-square', e.lampadaire);
-    lampeSud.position.set(x, 0, plan.zSud + 0.6);
+    lampeSud.position.set(x, 0, plan.zSud + config.parking.largeurTrottoir - 0.6);
     scene.add(lampeSud);
   }
 }

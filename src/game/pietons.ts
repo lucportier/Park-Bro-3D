@@ -9,8 +9,8 @@ const pc = config.pietons;
 const p = config.parking;
 
 // Les occupants d'une voiture garée marchent jusqu'à l'entrée du parc des expos :
-// le long de l'arrière des voitures, puis par l'allée piétonne centrale et ses passages,
-// puis le trottoir.
+// le long de l'arrière des voitures (ou par le trottoir sud, pour la rangée du bas), puis
+// par l'allée piétonne centrale et ses passages, puis le trottoir nord.
 
 // Vie d'un occupant : dansVoiture ──(délai écoulé)──► dehors ──(porte atteinte)──► entre ──► retiré.
 type Phase =
@@ -48,14 +48,23 @@ function trajetDepuis(place: Place, rang: number, xAllee: number, xPorte: number
   const versPlace = Math.cos(place.angle) > 0 ? 1 : -1;
   const zMarche = place.z - versPlace * (p.profondeurPlace / 2 + pc.decalageAllee);
   const decalage = (rang - 1) * pc.ecartGroupe;
-  const zTrottoir = plan.zNord - p.largeurTrottoir / 2;
   const zPorte = plan.zNord - p.largeurTrottoir + 0.3;
-  return [
-    { x: place.x + decalage, z: zMarche },
-    { x: xAllee + decalage, z: zMarche },
-    { x: xAllee + decalage, z: zTrottoir + decalage },
+  const fin = [
+    { x: xAllee + decalage, z: plan.zTrottoirNord + decalage },
     { x: xPorte + decalage, z: zPorte },
   ];
+  // Rangée du bas : l'avant de la voiture donne sur le trottoir sud. Ils descendent de ce
+  // côté et le longent jusqu'à l'allée piétonne, loin des voitures de l'allée d'entrée.
+  if (place.z + p.profondeurPlace / 2 >= plan.zSud - 0.01) {
+    const zDevant = plan.zSud + 0.6;
+    return [
+      { x: place.x + decalage, z: zDevant },
+      { x: place.x + decalage, z: plan.zTrottoirSud },
+      { x: xAllee + decalage, z: plan.zTrottoirSud },
+      ...fin,
+    ];
+  }
+  return [{ x: place.x + decalage, z: zMarche }, { x: xAllee + decalage, z: zMarche }, ...fin];
 }
 
 export function creerPietons(scene: THREE.Scene) {

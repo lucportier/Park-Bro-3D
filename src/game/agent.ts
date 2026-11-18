@@ -11,7 +11,7 @@ const zone = {
   xMin: plan.xPortail - config.routeEntree.longueur,
   xMax: plan.asphalte.x2,
   zMin: plan.zNord - config.parking.largeurTrottoir,
-  zMax: plan.zSud,
+  zMax: plan.zSud + config.parking.largeurTrottoir,
 };
 
 type Allure = 'idle' | 'walk' | 'sprint';
