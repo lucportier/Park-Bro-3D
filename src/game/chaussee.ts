@@ -10,6 +10,7 @@ export interface Point {
 
 export interface Reseau {
   noeuds: Point[];
+  // Sens unique : une arête [i, j] se parcourt de i vers j.
   aretes: [number, number][];
 }
 
@@ -50,7 +51,7 @@ const VIRAGE_MAX = -0.5;
 // qui compte au premier carrefour : elle n'a pas la place de se réaligner avant (m).
 const DEPART_COURT = 6;
 
-// Plus court chemin sur la chaussée, du point le plus proche de `de` au point le plus
+// Plus court chemin (dans le sens de circulation) sur la chaussée, du point le plus proche de `de` au point le plus
 // proche de `vers`. Le réseau est minuscule : un Dijkstra naïf suffit.
 // Avec `cap` (direction (sin cap, cos cap) d'une voiture), le chemin part vers l'avant et
 // ne fait jamais demi-tour : une voiture fait le tour s'il le faut.
@@ -61,10 +62,13 @@ export function chemin(r: Reseau, de: Point, vers: Point, cap?: number): Point[]
   const ia = noeuds.length - 2;
   const ib = noeuds.length - 1;
   const voisins: { vers: number; cout: number }[][] = noeuds.map(() => []);
+  // Sens unique : chaque arête ne se parcourt que de son premier nœud vers le second.
+  // (Deux points confondus, comme un départ pile sur un carrefour, se joignent dans les
+  // deux sens.)
   const relier = (i: number, j: number): void => {
     const cout = distance(noeuds[i]!, noeuds[j]!);
     voisins[i]!.push({ vers: j, cout });
-    voisins[j]!.push({ vers: i, cout });
+    if (cout < 1e-6) voisins[j]!.push({ vers: i, cout });
   };
   r.aretes.forEach(([i, j], arete) => {
     // Les deux points projetés coupent leur arête en morceaux.

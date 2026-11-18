@@ -34,6 +34,7 @@ Le joueur incarne un agent de parking qui se déplace à pied.
 
 ### 3.2 Voitures
 
+- **Sens unique** : le parking se parcourt toujours dans le même sens : allée d'entrée vers l'est, voie latérale est vers le nord, allée nord vers l'ouest, voie latérale ouest vers le sud. Une voiture qui a raté sa cible refait le tour. Il n'y a donc jamais de voitures face à face.
 - Une voiture ne roule que sur la chaussée, un peu à droite du milieu (pour laisser le bord aux piétons) ; elle se serre à droite quand une voiture vient en face. Elle ne fait ni marche arrière ni demi-tour (elle fait le tour s'il le faut) ; elle s'arrête toujours avant l'agent.
 - Une seule voiture à la fois quitte la file pour venir vers l'agent.
 - Une voiture qui attend a une jauge de patience visible (verte tant que le bonus est possible, puis jaune, puis rouge). Seule la tête de file (ou la voiture qui vient vers l'agent) perd sa patience à plein régime ; les suivantes, arrêtées dans la file, la perdent deux fois moins vite. Une voiture qui roule encore vers la file ne s'impatiente pas.

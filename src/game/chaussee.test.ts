@@ -28,13 +28,15 @@ describe('chaussée', () => {
     expect(projeter(reseau, { x: 30, z: 4 }).point).toEqual({ x: 20, z: 4 });
   });
 
-  it('prend le plus court des deux côtés de l\'anneau', () => {
-    // Vers l'allée nord, côté ouest : par la voie latérale ouest.
+  it('circule à sens unique : l\'anneau se parcourt toujours dans le même sens', () => {
+    // Vers l'allée nord, côté ouest : pas par la voie ouest (à contresens), mais en
+    // faisant le tour par l'allée sud, la voie est et l'allée nord.
     const ouest = chemin(reseau, { x: -5, z: 10 }, { x: 3, z: 0 });
     expect(ouest).toEqual([
       { x: -5, z: 10 },
       { x: 0, z: 10 },
-      { x: 0, z: 0 },
+      { x: 20, z: 10 },
+      { x: 20, z: 0 },
       { x: 3, z: 0 },
     ]);
     // Vers le haut de la voie est : par l'allée sud.
@@ -55,8 +57,29 @@ describe('chaussée', () => {
     const tour = chemin(reseau, { x: 10, z: 10 }, { x: 6, z: 10 }, Math.PI / 2);
     expect(tour[1]).toEqual({ x: 20, z: 10 });
     expect(longueur(tour)).toBeCloseTo(10 + 10 + 20 + 10 + 6);
-    // Sans cap, elle recule tout droit.
-    expect(longueur(chemin(reseau, { x: 10, z: 10 }, { x: 6, z: 10 }))).toBeCloseTo(4);
+    // Sans cap, c'est pareil : le sens unique interdit de reculer.
+    expect(longueur(chemin(reseau, { x: 10, z: 10 }, { x: 6, z: 10 }))).toBeCloseTo(10 + 10 + 20 + 10 + 6);
+  });
+
+  it('jamais à contresens, d\'où qu\'elle parte et où qu\'elle aille', () => {
+    // Sens des arêtes : chaque tronçon du chemin doit suivre l'un d'eux.
+    const sens = reseau.aretes.map(([i, j]) => {
+      const a = reseau.noeuds[i]!;
+      const b = reseau.noeuds[j]!;
+      const d = Math.hypot(b.x - a.x, b.z - a.z);
+      return { x: (b.x - a.x) / d, z: (b.z - a.z) / d };
+    });
+    for (const depart of [{ x: 4, z: 10 }, { x: 20, z: 5 }, { x: 10, z: 0 }, { x: 0, z: 4 }]) {
+      for (const but of [{ x: 8, z: 10 }, { x: 20, z: 3 }, { x: 5, z: 0 }, { x: 0, z: 7 }]) {
+        const pts = chemin(reseau, depart, but);
+        for (let k = 0; k + 1 < pts.length; k++) {
+          const d = Math.hypot(pts[k + 1]!.x - pts[k]!.x, pts[k + 1]!.z - pts[k]!.z);
+          if (d < 1e-6) continue;
+          const u = { x: (pts[k + 1]!.x - pts[k]!.x) / d, z: (pts[k + 1]!.z - pts[k]!.z) / d };
+          expect(sens.some((s) => s.x * u.x + s.z * u.z > 0.99)).toBe(true);
+        }
+      }
+    }
   });
 
   it('une voiture pile dans un coin repart vers l\'avant, pas en arrière', () => {
