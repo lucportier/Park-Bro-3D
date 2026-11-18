@@ -48,6 +48,8 @@ export const config = {
     // Délai entre deux arrivées, tiré au hasard entre ces bornes (secondes).
     intervalleMin: 4,
     intervalleMax: 7.5,
+    // Voitures garées au départ : demi-dimensions de leur carrosserie (m).
+    garee: { demiLongueur: 2.3, demiLargeur: 1.05 },
     // Vitesse de croisière de chaque conducteur, tirée entre ces bornes (m/s).
     vitesseMin: 7,
     vitesseMax: 9,
@@ -214,6 +216,8 @@ export const config = {
     // Au-delà de cette part de la vitesse, l'agent court au lieu de marcher.
     seuilCourse: 0.6,
     vitesseRotation: 12,
+    // Rayon du corps : il ne peut pas s'approcher des voitures à moins de ça (m).
+    rayon: 0.4,
     fonduAnimation: 0.15,
   },
 

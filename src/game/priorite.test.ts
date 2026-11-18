@@ -7,6 +7,7 @@ import {
   peutAvancer,
   pietonPresDeLaVoie,
   plafondPietons,
+  repousser,
   type PietonMobile,
   type VoitureVue,
 } from './priorite';
@@ -193,5 +194,34 @@ describe('priorité piétonne', () => {
     expect(peutAvancer({ x: 0, z: -3 }, but, [voiture(-2, true)], reglagesPieton)).toBe(true);
     // Il ne marche pas non plus dans une voiture arrêtée en travers de son chemin.
     expect(peutAvancer({ x: 0, z: -1.6 }, but, [voiture(0, false)], reglagesPieton)).toBe(false);
+  });
+});
+
+describe('agent et voitures', () => {
+  const voiture = { x: 0, z: 0, cap: Math.PI / 2, demiLongueur: 2.3, demiLargeur: 1 };
+
+  it('un point hors de la voiture ne bouge pas', () => {
+    expect(repousser({ x: 5, z: 0 }, voiture, 0.4)).toEqual({ x: 5, z: 0 });
+    expect(repousser({ x: 0, z: 1.5 }, voiture, 0.4)).toEqual({ x: 0, z: 1.5 });
+  });
+
+  it('un point entré dans la voiture est repoussé par le bord le plus proche', () => {
+    // Par le flanc (la voiture est tournée vers l'est : ses flancs sont au nord et au sud).
+    const flanc = repousser({ x: 0.5, z: 0.8 }, voiture, 0.4);
+    expect(flanc.z).toBeCloseTo(1.4);
+    expect(flanc.x).toBeCloseTo(0.5);
+    // Par le pare-chocs.
+    const avant = repousser({ x: 2.4, z: 0.1 }, voiture, 0.4);
+    expect(avant.x).toBeCloseTo(2.7);
+    expect(avant.z).toBeCloseTo(0.1);
+  });
+
+  it('il ne traverse jamais la voiture en marchant droit dessus', () => {
+    // Marche du nord au sud à 6 m/s : il doit contourner et rester hors de la carrosserie.
+    let p = { x: 0.3, z: -6 };
+    for (let t = 0; t < 4; t += 1 / 60) {
+      p = repousser({ x: p.x, z: p.z + 6 / 60 }, voiture, 0.4);
+      expect(Math.abs(p.x) >= 2.7 - 1e-9 || Math.abs(p.z) >= 1.4 - 1e-9).toBe(true);
+    }
   });
 });

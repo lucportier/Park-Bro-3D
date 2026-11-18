@@ -288,3 +288,24 @@ export function contournement(depuis: Point, vers: Point, v: VoitureVue, cote: n
   }
   return meilleur;
 }
+
+// Carrosserie d'une voiture, pour que l'agent ne la traverse pas.
+export type Boite = Pick<VoitureVue, 'x' | 'z' | 'cap' | 'demiLongueur' | 'demiLargeur'>;
+
+// Repousse un point qui serait entré dans la voiture (élargie de `rayon`) vers son bord le
+// plus proche : l'agent glisse le long de la carrosserie au lieu de la traverser.
+export function repousser(p: Point, v: Boite, rayon: number): Point {
+  const sin = Math.sin(v.cap);
+  const cos = Math.cos(v.cap);
+  const dx = p.x - v.x;
+  const dz = p.z - v.z;
+  let long = dx * sin + dz * cos;
+  let lat = dx * cos - dz * sin;
+  const l = v.demiLongueur + rayon;
+  const w = v.demiLargeur + rayon;
+  if (Math.abs(long) >= l || Math.abs(lat) >= w) return p;
+  // Sort par le côté le plus proche.
+  if (l - Math.abs(long) < w - Math.abs(lat)) long = (long < 0 ? -1 : 1) * l;
+  else lat = (lat < 0 ? -1 : 1) * w;
+  return { x: v.x + long * sin + lat * cos, z: v.z + long * cos - lat * sin };
+}

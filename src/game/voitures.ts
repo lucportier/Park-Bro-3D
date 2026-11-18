@@ -8,6 +8,7 @@ import {
   obstaclesPietons,
   pietonPresDeLaVoie,
   plafondPietons,
+  type Boite,
   type Obstacle,
   type PietonMobile,
   type VoitureVue,
@@ -109,6 +110,17 @@ function courbeVersPlace(r: Roulante, place: Place): Point[] {
     points.push({ x: a * p0.x + b * p1.x + c * p2.x + d * p3.x, z: a * p0.z + b * p1.z + c * p2.z + d * p3.z });
   }
   return points;
+}
+
+// Carrosserie d'une voiture posée en (position), tournée de `cap`.
+function boite(voiture: { longueur: number; largeur: number }, position: { x: number; z: number }, cap: number): Boite {
+  return {
+    x: position.x,
+    z: position.z,
+    cap,
+    demiLongueur: voiture.longueur / 2,
+    demiLargeur: voiture.largeur / 2,
+  };
 }
 
 function avantDe(objet: THREE.Object3D, cap: number, longueurVoiture: number): Point {
@@ -326,6 +338,8 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
   const surbrillances = creerSurbrillances(scene);
   let temps = 0;
   let agentPos = new THREE.Vector3();
+  // Voitures garées pendant la partie (celles du départ sont dans `placesOccupeesAuDepart`).
+  const garees: Boite[] = [];
   let pietons: Obstacle[] = [];
   // Les mêmes, là où ils sont seulement (sans prévoir leur trajet).
   let pietonsIci: Obstacle[] = [];
@@ -617,6 +631,17 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
     },
 
     // Voitures qui roulent dans le parking : les piétons les laissent passer.
+    // Toutes les carrosseries du parking, pour que l'agent ne les traverse pas.
+    carrosseries(): Boite[] {
+      const g = config.voitures.garee;
+      return [
+        ...file.map((c) => boite(c, c.objet.position, Math.PI / 2)),
+        ...(approche ? [approche] : []).concat(garages).map((r) => boite(r.voiture, r.voiture.objet.position, r.cap)),
+        ...garees,
+        ...placesOccupeesAuDepart.map((id) => ({ x: places[id]!.x, z: places[id]!.z, cap: places[id]!.angle, demiLongueur: g.demiLongueur, demiLargeur: g.demiLargeur })),
+      ];
+    },
+
     roulantes(): VoitureVue[] {
       return [...(approche ? [approche] : []), ...garages].map((r) => ({
         x: r.voiture.objet.position.x,
@@ -686,6 +711,7 @@ export function creerVoitures(scene: THREE.Scene, camera: THREE.Camera, surEvene
         gererRetenue(r, dt);
         if (allerSeGarer(r, dt) && r.phase.nom === 'manoeuvre') {
           garages.splice(i, 1);
+          garees.push(boite(r.voiture, r.voiture.objet.position, r.phase.place.angle));
           surEvenement({ type: 'garee', place: r.phase.place });
         }
       }

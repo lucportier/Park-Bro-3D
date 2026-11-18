@@ -103,7 +103,7 @@ function boucle(temps: number): void {
     const gestes = gestesDemandes();
     if (gestes.stop) agent.faireSigne('stop');
     else if (gestes.appel) agent.faireSigne('appel');
-    agent.mettreAJour(lireDirection(), dt);
+    agent.mettreAJour(lireDirection(), dt, voitures.carrosseries());
     suivre(camera, agent.objet.position, dt);
     const tap = prendreTap();
     if (tap) taper(tap.x, tap.y);

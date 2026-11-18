@@ -3,6 +3,7 @@ import { config } from '../config';
 import { modeleAnime } from '../scene/modeles';
 import type { Direction } from '../ui/controles';
 import { plan } from './parking';
+import { repousser, type Boite } from './priorite';
 
 const a = config.agent;
 
@@ -18,7 +19,8 @@ type Allure = 'idle' | 'walk' | 'sprint';
 
 export interface Agent {
   objet: THREE.Object3D;
-  mettreAJour(direction: Direction, dt: number): void;
+  // `voitures` : les carrosseries que l'agent ne traverse pas.
+  mettreAJour(direction: Direction, dt: number, voitures: Boite[]): void;
   // Fait un geste : main levée et onde qui montre jusqu'où il porte.
   faireSigne(geste: 'appel' | 'stop'): void;
 }
@@ -118,12 +120,21 @@ export async function creerAgent(scene: THREE.Scene): Promise<Agent> {
 
   return {
     objet,
-    mettreAJour(direction, dt) {
+    mettreAJour(direction, dt, voitures) {
       const intensite = Math.min(1, Math.hypot(direction.x, direction.z));
       if (intensite > 0.05) {
         const pas = a.vitesse * intensite * dt;
         objet.position.x = THREE.MathUtils.clamp(objet.position.x + direction.x * pas, zone.xMin, zone.xMax);
         objet.position.z = THREE.MathUtils.clamp(objet.position.z + direction.z * pas, zone.zMin, zone.zMax);
+        // Il ne traverse pas les voitures : repoussé hors de chacune (deux passes, pour
+        // le coin entre deux voitures serrées).
+        for (let passe = 0; passe < 2; passe++) {
+          for (const v of voitures) {
+            const p = repousser({ x: objet.position.x, z: objet.position.z }, v, a.rayon);
+            objet.position.x = p.x;
+            objet.position.z = p.z;
+          }
+        }
         angleVise = Math.atan2(direction.x, direction.z);
         changerAllure(intensite > a.seuilCourse ? 'sprint' : 'walk');
       } else {
